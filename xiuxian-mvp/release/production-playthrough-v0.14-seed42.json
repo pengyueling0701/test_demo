@@ -1,0 +1,31 @@
+{
+  "method": "固定随机种子42的经营规则模拟，无贷款、无任务奖励、无集市倒卖，不是真机试玩",
+  "day": 31,
+  "alive": true,
+  "realm": 1,
+  "level": 1,
+  "herbs": 8,
+  "debt": 979890,
+  "cash": 0,
+  "nodes": [
+    "第3日青铜丹炉",
+    "第7日炼气七级",
+    "第16日筑基"
+  ],
+  "brews": 17,
+  "failures": 1,
+  "tends": 15,
+  "hastens": 10,
+  "ledger": {
+    "trade": 26370,
+    "order": 5660,
+    "reward": 0,
+    "expense": 2420,
+    "repay": 0,
+    "collection": 30110,
+    "net": 29610,
+    "operating": 29610
+  },
+  "interest": 10000,
+  "repaid": 30110
+}

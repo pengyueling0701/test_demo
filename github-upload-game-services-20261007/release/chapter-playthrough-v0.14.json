@@ -1,0 +1,55 @@
+{
+  "day": 31,
+  "alive": true,
+  "realm": 1,
+  "level": 1,
+  "cash": 0,
+  "debt": 986140,
+  "herbs": 6,
+  "events": [
+    "第1日携带木系技能",
+    "第3日升级青铜丹炉",
+    "第3日炼丹成功",
+    "第25日突破筑基",
+    "秘境回访高处药谷，角色落点y=112",
+    "第27日实际帧循环秘境：通关"
+  ],
+  "ledger": {
+    "trade": 20970,
+    "order": 3770,
+    "reward": 750,
+    "expense": 2130,
+    "repay": 0,
+    "collection": 23860,
+    "net": 23360,
+    "operating": 22610
+  },
+  "interest": 10000,
+  "collected": 23860,
+  "quests": [
+    "skill",
+    "plant",
+    "harvest",
+    "order",
+    "furnace",
+    "brew",
+    "realm",
+    "wind",
+    "boss",
+    "collection"
+  ],
+  "battle": {
+    "dungeon": "qinglan",
+    "defeated": false,
+    "cleared": true,
+    "loot": {
+      "herb": 9,
+      "moon": 4,
+      "ore": 0,
+      "core": 2
+    },
+    "usedPills": [],
+    "sweepUnlocked": true
+  },
+  "method": "确定性经营模拟，经营与真实战斗帧循环模拟，不伪造通关、不使用贷款，不是真机试玩"
+}

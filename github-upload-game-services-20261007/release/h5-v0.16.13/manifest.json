@@ -1,0 +1,25 @@
+{
+  "sha256": "75a5c255e875d07fba01ec0622bdd1c505e3d150dbb45045c42b5ca830674404",
+  "bytes": 36479677,
+  "archive": "yilu-chenmeng-h5-v0.16.13.zip",
+  "parts": [
+    "part-001.bin",
+    "part-002.bin",
+    "part-003.bin",
+    "part-004.bin",
+    "part-005.bin",
+    "part-006.bin",
+    "part-007.bin",
+    "part-008.bin",
+    "part-009.bin",
+    "part-010.bin",
+    "part-011.bin",
+    "part-012.bin",
+    "part-013.bin",
+    "part-014.bin",
+    "part-015.bin",
+    "part-016.bin",
+    "part-017.bin",
+    "part-018.bin"
+  ]
+}
