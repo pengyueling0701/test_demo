@@ -1,0 +1,89 @@
+{
+  "method": "固定随机种子42、控制现实时间的规则完整流程；动作战斗运行实际引擎与操作输入，画布与帧时间模拟；另做390×844触屏浏览器检查，非真机验证",
+  "version": "0.17.0",
+  "elapsedRealMinutes": 342,
+  "gameDay": 46,
+  "nodes": [
+    {
+      "minute": 1,
+      "event": "首批灵草与挂机收益已领取",
+      "herbs": 12,
+      "cash": 601,
+      "xp": 42
+    },
+    {
+      "minute": 1,
+      "event": "青铜丹炉升级",
+      "cash": 781
+    },
+    {
+      "minute": 8,
+      "event": "首批修炼丹带来第一个小等级成长",
+      "level": 6,
+      "cultivation": 86
+    },
+    {
+      "minute": 278,
+      "event": "自炼筑基丹完成筑基",
+      "cash": 8918,
+      "level": 1,
+      "alchemyXP": 430
+    },
+    {
+      "minute": 282,
+      "event": "真实战斗逻辑通关青岚三关",
+      "seconds": 14,
+      "remainingHP": 155,
+      "remainingMana": 6,
+      "consumedPills": [],
+      "stage": 3,
+      "bossDefeated": true,
+      "rate": {
+        "progress": 3,
+        "label": "青岚竹海 · 首领",
+        "xp": 153,
+        "cash": 84
+      }
+    }
+  ],
+  "combat": {
+    "seconds": 14,
+    "remainingHP": 155,
+    "remainingMana": 6,
+    "consumedPills": [],
+    "stage": 3,
+    "bossDefeated": true
+  },
+  "ledger": {
+    "idle": 366,
+    "trade": 10260,
+    "order": 650,
+    "reward": 750,
+    "expense": 3920,
+    "repay": 0,
+    "collection": 0,
+    "net": 8106,
+    "operating": 7356
+  },
+  "final": {
+    "cash": 8606,
+    "realm": 1,
+    "level": 1,
+    "cultivation": 257,
+    "alchemyXP": 470,
+    "chapterComplete": true,
+    "rate": {
+      "progress": 3,
+      "label": "青岚竹海 · 首领",
+      "xp": 153,
+      "cash": 84
+    },
+    "postClearHourCash": 84
+  },
+  "pendingFarm": [
+    0,
+    11,
+    18,
+    18
+  ]
+}

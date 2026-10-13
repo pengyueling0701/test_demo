@@ -1,3 +1,5 @@
+import {beginManual,manualAction,finishManual} from './manual-alchemy.js';
+import {GARDENS,migrateGarden} from './garden.js';
 import {defaultLayout,syncLayout,validateLayout} from './home-layout.js';
 import {freshJourney,updateJourney} from './journey.js';
 import {FARM_ARTS,artUnlocked} from './production.js';
@@ -9,6 +11,7 @@ import { SOILS, CROPS, plotLimit, expansionPrice, plantingBlock, harvestYield } 
 import { PILL_GRADES,FURNACES,EQUIPMENT,EQUIPMENT_SLOTS,emptyEquipment,equipmentStats,itemCategory } from './systems.js';
 import {SKILLS,assignElements,validLoadout} from './elements.js';
 import {cultivationRequired} from './cultivation.js';
+import {freshProduction,migrateProduction,settleProduction,claimProduction,cancelQueue,cropCycleMs,brewDurationMs,queueLimit,idleRate,dungeonProgress} from './idle.js';
 export const REALMS = ['炼气', '筑基', '金丹', '元婴'];
 export const BASE_CREDIT = [1000000, 2000000, 5000000, 10000000];
 export const BREAKTHROUGH_PILLS = ['foundationPill','goldenPill','nascentPill'];
@@ -103,35 +106,36 @@ for(const [id,r] of Object.entries(RECIPES)){
 export const materialKeys=(s,base)=>Object.keys(ITEMS).filter(k=>(k===base||ITEMS[k].baseItem===base)&&s.inventory[k]>0).sort((a,b)=>ITEMS[a].grade-ITEMS[b].grade);
 export const materialCount=(s,base)=>materialKeys(s,base).reduce((n,k)=>n+s.inventory[k],0);
 export const marketCatalog=()=>[...Object.entries(ITEMS).filter(([id,i])=>i.price&&!i.legacyVariant&&id!=='supreme'&&id!=='dew').map(([item,i])=>({kind:'item',item,...i})),...Object.entries(WEAPONS).filter(([,i])=>i.price).map(([item,i])=>({kind:'weapon',item,...i})),...Object.entries(EQUIPMENT).map(([item,i])=>({kind:'equipment',item,...i}))];
-export function initialState() {
+export function initialState(now=Date.now()) {
   return {
     roots:['metal','wood','water','fire','earth'],learnedSkills:['metal'],skillLoadout:['metal'],skillGrades:{metal:0},
     journey:freshJourney(),tutorial:freshTutorial(),economy:freshEconomy(),settings:{sound:true,battleHints:true},notices:[],remindedDays:[],
     marketCycle:0,marketOffers:makeMarket(0,marketCatalog()),
-    version:1,systemsVersion:2,productionVersion:1,day:1,realm:0,level:5,cultivation:0,
-    cash: 500, debt: 1000000, nextCollection: 31,
+    gardenVersion:1,gardens:['normal'],version:1,systemsVersion:2,productionVersion:1,day:1,realm:0,level:5,cultivation:0,
+    cash: 500, debt: 0, nextCollection: null,production:freshProduction(now),dungeonStages:{},
     ageDays: 0, lifeYears: 90, startAge: 30, aptitude: 0,
     energy: 100, hp: 100, mana: 60, toxin: 0,
     farming: 0, alchemy: 0, alchemyXP:0, reputation: 0,
     house: 0, furnace: 0, furniture: { cabinet: false, bed: false, table: false },homeWarehouse:{furniture:[]},
     inventory:Object.fromEntries(Object.keys(ITEMS).map(k=>[k,k==='seed'?8:0])),
-    plots: Array.from({ length: 4 }, () => null),
-    plotSoils:Array.from({length:4},()=>'normal'),
+    plots: Array.from({ length: 9 }, () => null),
+    plotSoils:Array.from({length:9},()=>'normal'),
     weapon: 'wood', weapons: ['wood'], armor: false,
     equipped:emptyEquipment(),ownedEquipment:[],
     doubleJump: false, bossDefeated: false, clearedDungeons: [],sweepReadyDays:{},selectedDungeon: DUNGEONS[0].id, failed: false, won: false,
     orders: makeOrders(0), orderCycle: 0,
-    log:['债主留下最后通牒。你带着500灵石，回到乡下老屋。','旧箱中藏着失传丹方。破败丹炉还能炼制粗制丹药。'],
+    log:['带着500灵石回到乡下，开始重建自己的丹房。','药田持续培育，蒲团修行不停；旧箱中藏着改变资质的丹方。'],
   };
 }
-export function restoreState(raw) {
-  if(!raw||raw.version!==1||!raw.inventory||!Array.isArray(raw.plots)||!Number.isFinite(raw.cash)||!Number.isFinite(raw.debt))return initialState();
-  const defaults=initialState();
+export function restoreState(raw,now=Date.now()) {
+  if(!raw||raw.version!==1||!raw.inventory||!Array.isArray(raw.plots)||!Number.isFinite(raw.cash)||!Number.isFinite(raw.debt))return initialState(now);
+  const defaults=initialState(now);
   const s={...defaults,...structuredClone(raw),inventory:{...defaults.inventory,...raw.inventory},furniture:{...defaults.furniture,...raw.furniture},homeWarehouse:{...defaults.homeWarehouse,...raw.homeWarehouse,furniture:[...(raw.homeWarehouse?.furniture??[])]}};
   const legacyMaterials=raw.homeWarehouse?.materials??{};let returnedMaterials=0;
   for(const [id,qty] of Object.entries(legacyMaterials))if(ITEMS[id]&&Number.isSafeInteger(qty)&&qty>0){s.inventory[id]=(s.inventory[id]??0)+qty;returnedMaterials+=qty;}
   if(returnedMaterials)note(s,`家园仓库调整：旧存药材与丹材已移入背包，共${returnedMaterials}份。`);
   delete s.homeWarehouse.materials;
+  if(raw.gardenVersion!==1)delete s.gardenVersion;
   s.plotSoils=s.plots.map((_,i)=>Object.hasOwn(SOILS,raw.plotSoils?.[i])?raw.plotSoils[i]:'normal');
   s.clearedDungeons=raw.clearedDungeons??(raw.bossDefeated?[DUNGEONS[0].id]:[]);
   s.selectedDungeon=raw.selectedDungeon??DUNGEONS[0].id;
@@ -142,24 +146,26 @@ export function restoreState(raw) {
   s.roots=[...defaults.roots];s.learnedSkills=raw.learnedSkills??['metal'];s.skillLoadout=raw.skillLoadout??['metal'];s.skillGrades={metal:0,...raw.skillGrades};
   const marketCycle=Math.floor((s.day-1)/7);s.marketCycle=raw.marketCycle??marketCycle;s.marketOffers=raw.marketOffers??makeMarket(marketCycle,marketCatalog());
   migrateChapter(s,raw);
-  s.journey=raw.journey??freshJourney();updateJourney(s);
+  s.journey=raw.journey?structuredClone(raw.journey):freshJourney();updateJourney(s);
   s.alchemyXP=raw.alchemyXP??(raw.alchemy??0)*10;
   if(!s.failed)advanceMinorRanks(s);
   if(raw.productionVersion!==1){for(const o of s.marketOffers){const catalog={item:ITEMS,weapon:WEAPONS,equipment:EQUIPMENT}[o.kind];if(catalog?.[o.item]?.price)o.price=Math.max(1,Math.floor(catalog[o.item].price*.8));}s.productionVersion=1;}
 
-  syncLayout(s);return s;
+  migrateProduction(s,raw,now);s.debt=0;s.nextCollection=null;s.failed=false;s.notices=[];
+  settleProduction(s,now);advanceMinorRanks(s);updateJourney(s);migrateGarden(s);return s;
 }
 export function makeOrders(cycle,realm=0,dewUnlocked=false) {
+  const trainingPill=realm>=3?'rare':realm>=2?'advanced':realm>=1?'mid':'spirit',third=realm>=1&&dewUnlocked&&cycle%2?'dew':trainingPill;
   return [
     { id: `${cycle}-herb`, item: 'herb', qty: 4 + cycle % 3, reward: 650 + (cycle % 3) * 130, done: false, owner: '云游药师' },
     { id: `${cycle}-heal`, item: cycle%2?'manaPill':'heal', qty: 2 + cycle % 2, reward: (2+cycle%2)*Math.round(ITEMS[cycle%2?'manaPill':'heal'].sell*1.4), done: false, owner: '山中剑修' },
-    { id: `${cycle}-spirit`, item: realm>=1?(dewUnlocked&&cycle%2?'dew':'advanced'):'spirit', qty: 2, reward: 2*Math.round(ITEMS[realm>=1?(dewUnlocked&&cycle%2?'dew':'advanced'):'spirit'].sell*1.4), done: false, owner: '清溪道人' },
+    { id: `${cycle}-spirit`, item: third, qty: 2, reward: 2*Math.round(ITEMS[third].sell*1.4), done: false, owner: '清溪道人' },
   ];
 }
 export const lifeLeft = s => Math.max(0, s.lifeYears - s.startAge - s.ageDays / 360);
 export const lifeFactor = s => Math.min(1.5, Math.max(0, lifeLeft(s) / 60));
 export const credit = s => Math.floor(BASE_CREDIT[s.realm] * lifeFactor(s));
-export const availableCredit = s => Math.max(0, credit(s) - s.debt);
+export const availableCredit = () => 0;
 export const maxHP=s=>100+s.realm*40+equipmentStats(s).hp;
 export const maxMana=s=>60+s.realm*30+equipmentStats(s).mana;
 export const attack=s=>WEAPONS[s.weapon].attack+s.realm*8+equipmentStats(s).attack;
@@ -186,36 +192,10 @@ function expend(s, amount) {
   if (s.energy < amount) throw new Error('精力不足，先休息一日。');
   s.energy -= amount;
 }
-export function collectDebt(s) {
-  if (s.debt <= 0) return;
-  const interest = Math.ceil(s.debt * 0.01);
-  s.debt += interest;
-  let repaid = 0;
-  if (s.cash > 0) {
-    repaid = Math.min(s.cash, s.debt); s.cash -= repaid; s.debt -= repaid;
-    note(s, `债主上门：利息${interest}，收走现金${repaid}灵石；本次不扣库存。`);
-  } else {
-    const herbs = Object.keys(ITEMS).filter(k => ITEMS[k].collateral).sort((a,b) => ITEMS[a].sell - ITEMS[b].sell || a.localeCompare(b));
-    for (const item of herbs) {
-      while (s.inventory[item] > 0 && s.debt > 0) {
-        s.inventory[item]--;
-        const value = ITEMS[item].sell;
-        const paid = Math.min(value, s.debt); repaid += paid;
-        s.debt -= paid; s.cash += value - paid;
-      }
-    }
-    note(s, `债主上门：利息${interest}，灵药仙草抵债${repaid}灵石。`);
-  }
-  if (s.debt > 0 && s.cash === 0 && !Object.keys(ITEMS).some(k => ITEMS[k].collateral && s.inventory[k] > 0)) {
-    s.failed = true; note(s, '身无分文，灵草也已耗尽。债主封了老屋，这一局结束。');
-  }
-  recordEconomy(s,'collection',repaid);if(s.day>=31&&!s.failed)markQuest(s,'collection');s.economy??=freshEconomy(s.day);s.economy.lastPeriod={startDay:s.economy.startDay,endDay:s.day,entries:[...s.economy.entries],interest,repaid};s.economy.entries=[];s.economy.startDay=s.day;
-  if (s.debt === 0) { s.nextCollection = null; note(s, '债契已清。从此不再受催债之苦。'); }
-}
+export function collectDebt(s) { s.debt=0;s.nextCollection=null; }
 export function advance(s, days = 1, resting = false) {
   for (let i = 0; i < days && !s.failed; i++) {
-    s.day++; s.ageDays++;if(s.day>=31&&s.debt===0&&!s.failed)markQuest(s,'collection');
-    if([24,28].includes(s.day)&&s.nextCollection===31&&s.debt>0&&!s.remindedDays.includes(s.day)){s.remindedDays.push(s.day);s.notices.push({day:s.day,text:'债主：第31日上门。有现金只收现金，零现金才扣背包里的抵债仙草。请预备利息，保留至少2份种子与2株仙草作下一轮周转。'});note(s,'债主送来催债预告。');}
+    s.day++; s.ageDays++;
     s.energy = Math.min(100, s.energy + (resting ? 70 + (s.furniture.bed ? 20 : 0) : 28));
     s.toxin = Math.max(0, s.toxin - (resting ? 18 : 6));
     if (resting) { s.hp = maxHP(s); s.mana = maxMana(s); }
@@ -223,9 +203,6 @@ export function advance(s, days = 1, resting = false) {
     if(cycle!==s.marketCycle){s.marketCycle=cycle;s.marketOffers=makeMarket(cycle,marketCatalog());note(s,'集市已换上新一批货物。');}
     if (cycle !== s.orderCycle) {
       s.orderCycle = cycle; s.orders = makeOrders(cycle,s.realm,s.journey?.dewRecipe); note(s, '道友发布了新一批订单，旧订单已替换。');
-    }
-    if (s.nextCollection !== null && s.day >= s.nextCollection && s.debt > 0) {
-      collectDebt(s); if (s.debt > 0) s.nextCollection += 30;
     }
   }
 }
@@ -247,25 +224,36 @@ export function consume(s, item) {
   s.toxin=Math.min(100,s.toxin+pill.toxin);
   note(s, `服下${ITEMS[item].name}，丹毒增加。`);
 }
-function baseTransition(state, action, payload = {}, random = Math.random) {
+function baseTransition(state, action, payload = {}, random = Math.random,now=Date.now()) {
   const s = structuredClone(state);
+  now=Math.max(now,s.production?.lastAt??now);
+  settleProduction(s,now);
   if (s.failed) throw new Error('本局已结束，请重新开始。');
   switch (action) {
+    case 'unlock-garden': {const garden=GARDENS.find(g=>g.id===payload.soil);if(!garden||garden.id==='normal')throw new Error('土地类型不存在。');if(s.gardens?.includes(garden.id))throw new Error('这片药田已经开放。');if(s.realm<garden.realm)throw new Error('修仙境界不足。');spend(s,garden.price);s.gardens.push(garden.id);for(let i=0;i<9;i++){s.plots.push(null);s.plotSoils.push(garden.id);}note(s,'已开放'+garden.name+'，新增九块药田。');break;}
+    case 'plant-all': {
+      const cropId=payload.crop??'herb',crop=CROPS[cropId];if(!crop||s.realm<crop.realm)throw new Error('草药尚未解锁。');
+      const targets=s.plots.map((p,i)=>!p&&crop.soils.includes(s.plotSoils[i])?i:-1).filter(i=>i>=0).slice(0,materialCount(s,crop.seed));
+      if(!targets.length)throw new Error('没有适合这类草药的空田，请先停止培育或改造土地。');
+      if(materialCount(s,crop.seed)<targets.length)throw new Error(`批量启用${targets.length}块药田需要${targets.length}份种子。`);
+      let result=s;for(const index of targets)result=baseTransition(result,'plant',{index,crop:cropId},random,now);return result;
+    }
     case 'plant': {
       const i = payload.index;
       const cropId=payload.crop??'herb',block=plantingBlock(s,i,cropId);
       if(block)throw new Error(block);
       const crop=CROPS[cropId];
-      const seed=payload.seed??materialKeys(s,crop.seed)[0];if(!materialKeys(s,crop.seed).includes(seed))throw new Error('没有所选品质的种子。');expend(s,8);s.inventory[seed]--;s.plots[i]={crop:cropId,grade:Math.max(1,ITEMS[seed].grade),planted:s.day,ready:s.day+crop.days};
-      note(s,`播下${crop.name}，${crop.days}日后可收获。`);break;
+      const seed=payload.seed??materialKeys(s,crop.seed)[0];if(!materialKeys(s,crop.seed).includes(seed))throw new Error('没有所选品质的种子。');s.inventory[seed]--;s.plots[i]={crop:cropId,grade:Math.max(1,ITEMS[seed].grade),continuous:true,lastAt:now,firstReadyAt:now+(s.farming===0?60000:cropCycleMs(cropId)),buffer:0,cycleMs:cropCycleMs(cropId)};
+      note(s,`开始持续培育${crop.name}；消耗一份种子启用，后续自动生产。`);break;
     }
     case 'harvest': {
-      const p = s.plots[payload.index];
-      if (!p || s.day < p.ready) throw new Error('仙草尚未成熟。');
-      const crop=CROPS[p.crop??'herb'],qty=harvestYield(s,p);
-      const grade=p.grade??1;const output=grade===1?crop.item:crop.item+'_q'+grade;expend(s,5);addItem(s,output,qty);s.farming++;s.plots[payload.index]=null;
-      note(s,`收获${qty}株${crop.name}，种植熟练度提升。`);break;
+      if(!s.plots[payload.index]?.buffer)throw new Error('暂无成熟灵草，现实时间会持续生产。');
+      if(inventoryCount(s)>=capacity(s))throw new Error('背包已满，灵草保留在药田待领取。');
+      claimProduction(s,'farm',payload.index);break;
     }
+    case 'claim-production': claimProduction(s,payload.kind??'all');break;
+    case 'cancel-brew': cancelQueue(s);break;
+    case 'stop-plot': {const p=s.plots[payload.index];if(!p)throw new Error('药田尚未启用。');if(p.buffer)throw new Error('请先领取已产出的灵草。');s.plots[payload.index]=null;note(s,'已停止培育，可改土或重新选择草药。');break;}
     case 'expand-plot': {
       if(s.plots.length>=plotLimit(s))throw new Error('当前住宅的药田容量已满，请先升级房屋。');
       spend(s,expansionPrice(s));s.plotSoils??=s.plots.map(()=>'normal');s.plots.push(null);s.plotSoils.push('normal');
@@ -284,13 +272,13 @@ function baseTransition(state, action, payload = {}, random = Math.random) {
     case 'read-story': {if(!s.journey.available.includes(payload.id))throw new Error('尚未发生这段故事。');if(!s.journey.seen.includes(payload.id))s.journey.seen.push(payload.id);break;}
     case 'farm-art': {
       const id=payload.item,a=FARM_ARTS[id];if(!a||!artUnlocked(s,id))throw new Error('境界不足，尚未领悟此仙术。');
-      const targets=s.plots.filter(p=>p&&p.ready>s.day&&!p[id]);if(!targets.length)throw new Error('没有可施术的未成熟作物，每轮仅一次。');
+      const targets=s.plots.filter(p=>p?.continuous&&!p[id]);if(!targets.length)throw new Error('没有可施术的药田，本轮已施术。');
       if(s.mana<a.mana)throw new Error('法力不足，可服回灵丹或休养。');expend(s,a.energy);s.mana-=a.mana;
-      for(const p of targets){p[id]=true;if(id==='hasten')p.ready=Math.max(s.day,p.ready-1);}
+      for(const p of targets){p[id]=true;if(id==='hasten'){if(p.firstReadyAt)p.firstReadyAt=Math.max(now,p.firstReadyAt-30000);else p.lastAt-=Math.floor(p.cycleMs/4);}}
       note(s,a.name+'施展成功，影响'+targets.length+'块药田。');break;
     }
     case 'rest': advance(s, 1, true); note(s, '休养一日，恢复气血与精力，丹毒渐消。'); break;
-    case 'claim-quest': {const q=QUESTS.find(q=>q.id===payload.id);if(!q||!s.tutorial.completed.includes(q.id)||s.tutorial.claimed.includes(q.id))throw new Error('任务未完成或奖励已领取。');for(const [id,qty]of Object.entries(q.reward??{}))addItem(s,id,qty);s.cash+=q.cash??0;recordEconomy(s,'reward',q.cash??0);s.tutorial.claimed.push(q.id);note(s,'领取任务奖励：'+q.title);break;}
+    case 'claim-quest': {const q=QUESTS.find(q=>q.id===payload.id);if(!q||!s.tutorial.completed.includes(q.id)||s.tutorial.claimed.includes(q.id))throw new Error('任务未完成或奖励已领取。');for(const [id,qty]of Object.entries(q.reward??{}))addItem(s,id,qty);s.cash+=q.cash??0;s.cultivation+=q.xp??0;recordEconomy(s,'reward',q.cash??0);s.tutorial.claimed.push(q.id);note(s,'领取任务奖励：'+q.title);break;}
     case 'toggle-guide': s.tutorial.hidden=!s.tutorial.hidden;break;
     case 'toggle-sound': s.settings.sound=!s.settings.sound;break;
     case 'toggle-battle-hints': s.settings.battleHints=!s.settings.battleHints;break;
@@ -316,33 +304,31 @@ function baseTransition(state, action, payload = {}, random = Math.random) {
       s.inventory[payload.item] -= qty; s.cash += item.sell * qty; note(s, `出售${item.name} × ${qty}。`); break;
     }
     case 'furnace': {
+      if(s.manualBrew||s.production.queue)throw new Error('请先完成当前炼丹，再升级丹炉。');
       if(s.furnace>=5)throw new Error('丹炉已达到传说级。');
       const next=FURNACES[s.furnace+1];if(s.realm<next.realm)throw new Error('境界不足，尚未解锁该丹炉。');
       const furnace=FURNACES[s.furnace];if(materialCount(s,'ore')<furnace.ore)throw new Error('升级丹炉需要'+furnace.ore+'份赤铜矿。');spend(s,furnace.upgrade);let needed=furnace.ore;for(const key of materialKeys(s,'ore')){const take=Math.min(needed,s.inventory[key]);s.inventory[key]-=take;needed-=take;if(!needed)break;}s.furnace++;note(s,`丹炉升级为${next.name}，可炼制${PILL_GRADES[s.furnace]}及以下品质。`);break;
     }
+    case 'prepare-manual': {const prepared=baseTransition(s,'brew',payload,random,now);prepared.log.shift();prepared.production.queue.grade=ITEMS[payload.item].grade;beginManual(prepared,prepared.production.queue);note(prepared,'本批材料已取出，请拖入丹炉、捣药并生火。');return prepared;}
+    case 'load-material': case 'grind-material': case 'light-furnace': case 'cancel-manual': manualAction(s,action,payload);break;
+    case 'finish-manual': {const result=finishManual(s);note(s,'炼丹完成：成功'+result.successes+'枚，失败'+result.failures+'枚；火候稳定度'+result.fireQuality+'%。');break;}
     case 'brew': {
       const r = RECIPES[payload.item];
       if(r?.discovery&&!s.journey.dewRecipe)throw new Error('首次通关青岚竹海后发现凝露丹方。');
       if (!r || s.realm < r.realm || s.furnace < r.furnace) throw new Error('境界或丹炉等级不足。');
       const qty=payload.qty??1;
       if(!Number.isSafeInteger(qty)||qty<1)throw new Error('炼制数量须为正整数。');
+      if(s.production.queue||s.manualBrew)throw new Error('丹炉一次只能炼一种丹，请先完成当前批次。');
+      if(qty>queueLimit(s))throw new Error(`丹炉最多安排${queueLimit(s)}枚，升级丹炉可扩充队列。`);
       for (const [k,q] of Object.entries(r.materials)) if (materialCount(s,k) < q*qty) throw new Error(`${ITEMS[k].name}不足，本次需要${q*qty}份。`);
-      const energyCost=s.furniture.table?12:18;
-      if(s.energy<energyCost*qty)throw new Error(`精力不足，本次炼制${qty}枚需要${energyCost*qty}点精力。`);
-      const inputCount=Object.values(r.materials).reduce((sum,n)=>sum+n*qty,0);
-      if(inventoryCount(s)-inputCount+qty>capacity(s))throw new Error('背包空间不足，无法容纳本次可能炼成的丹药。');
       const chance=brewChance(s,ITEMS[payload.item].grade);
-      expend(s,energyCost*qty);
-      for (const [base,q]of Object.entries(r.materials)){let left=q*qty;for(const k of materialKeys(s,base)){const take=Math.min(left,s.inventory[k]);s.inventory[k]-=take;left-=take;if(!left)break;}}
-      let successes=0;for(let i=0;i<qty;i++)if(random()*100<chance)successes++;
-      const failures=qty-successes;
-      s.alchemyXP=alchemyXP(s)+successes*10;
-      if(successes){addItem(s,payload.item,successes);s.alchemy+=successes;}
-      note(s,`炼制${ITEMS[payload.item].name}×${qty}：成功${successes}枚，失败${failures}枚${failures?'（失败材料作废）':''}，炼丹经验+${successes*10}（单枚成功率${chance}%）。`);
-      s.lastBrew={item:payload.item,success:successes>0,successes,failures,qty,chance};break;
+      const units=[];
+      for(let i=0;i<qty;i++){const materials={};for(const [base,q]of Object.entries(r.materials)){let left=q;for(const k of materialKeys(s,base)){const take=Math.min(left,s.inventory[k]);s.inventory[k]-=take;materials[k]=(materials[k]??0)+take;left-=take;if(!left)break;}}const roll=random()*100;units.push({materials,roll,success:roll<chance});}
+      s.production.queue={item:payload.item,units,done:0,failures:0,chance,startedAt:now,durationMs:brewDurationMs(ITEMS[payload.item].grade,s)};
+      note(s,`安排${ITEMS[payload.item].name}×${qty}，材料已投入，离线继续炼制；成功率${chance}%。`);break;
     }
     case 'consume': consume(s, payload.item); break;
-    case 'cultivate': expend(s, 20); s.cultivation += 28 * (s.aptitude === 2 ? 2 : 1); advance(s); note(s, '静坐修炼一日，修为有所精进。'); break;
+    case 'cultivate': claimProduction(s,'idle');break;
     case 'breakthrough': {
       if (s.realm >= REALMS.length-1 && s.level >= 10) throw new Error('已达到当前最高境界。');
       if(s.level<10)throw new Error('境界内等级会在修为达到对应经验门槛时自动提升，无需突破。');
@@ -356,19 +342,7 @@ function baseTransition(state, action, payload = {}, random = Math.random) {
       s.realm++; s.level = 1; s.lifeYears += 60; s.hp = maxHP(s); s.mana = maxMana(s); note(s, `${needsBreakthroughPill?'消耗1颗'+ITEMS[breakthroughPill].name+'，':''}踏入${REALMS[s.realm]}！寿元增加${60}年。${s.realm === 1 ? '御剑飞行、特殊仙草与催生术已解锁。' : ''}`);
       break;
     }
-    case 'repay': {
-      const amount = payload.amount;
-      if (!Number.isSafeInteger(amount) || amount < 1 || amount > s.debt) throw new Error('请输入不超过欠款的正整数。');
-      spend(s, amount); s.debt -= amount;
-      if (!s.debt) s.nextCollection = null;
-      note(s, `主动还款${amount}灵石。`); break;
-    }
-    case 'borrow': {
-      const amount = payload.amount;
-      if (!Number.isSafeInteger(amount) || amount < 1 || amount > availableCredit(s)) throw new Error('借款超过可用额度，或金额无效。');
-      if (!s.debt) s.nextCollection = s.day + 30;
-      s.debt += amount; s.cash += amount; note(s, `借入${amount}灵石，量力而行。`); break;
-    }
+    case 'repay': case 'borrow': throw new Error('借贷与强制催收已取消。');
     case 'ignore-order': {const o=s.orders.find(o=>o.id===payload.id);if(!o||o.done||o.ignored)throw new Error('该订单已处理。');o.ignored=true;note(s,'忽略'+o.owner+'的订单，下一批刷新时换新。');break;}
     case 'order': {
       const o = s.orders.find(o => o.id === payload.id);
@@ -454,6 +428,10 @@ function baseTransition(state, action, payload = {}, random = Math.random) {
         const id = s.selectedDungeon ?? DUNGEONS[0].id;
         if (!s.clearedDungeons.includes(id)) s.clearedDungeons.push(id);
       }
+      const id=s.selectedDungeon;s.dungeonStages??={};
+      const reached=payload.bossDefeated&&!payload.defeated?3:Math.min(2,Math.max(0,Math.floor(payload.completedStage??0)));
+      s.dungeonStages[id]=Math.max(dungeonProgress(state,id),reached);
+      s.lastEfficiency={before:idleRate(state),after:idleRate(s)};
       const loot = payload.loot ?? {};const brought={};const usedPills=Object.entries(ITEMS).filter(([,i])=>i.heal||i.manaRestore).map(([id])=>({id,qty:Math.max(0,(state.inventory[id]??0)-(s.inventory[id]??0))})).filter(i=>i.qty); 
       for (const [k,q] of Object.entries(loot)) {
         if (!ITEMS[k] || !Number.isSafeInteger(q) || q < 0) continue;
@@ -462,15 +440,16 @@ function baseTransition(state, action, payload = {}, random = Math.random) {
         s.inventory[k] += actual;brought[k]=actual;
         if (actual < kept) note(s, '背包已满，部分秘境资源无法带回。');
       }
-      s.lastExpedition={dungeon:s.selectedDungeon,defeated:!!payload.defeated,cleared:!!payload.bossDefeated&&!payload.defeated,loot:brought,usedPills,sweepUnlocked:s.clearedDungeons.includes(s.selectedDungeon)};
+      s.lastExpedition={dungeon:s.selectedDungeon,stage:dungeonProgress(s,s.selectedDungeon),defeated:!!payload.defeated,cleared:!!payload.bossDefeated&&!payload.defeated,loot:brought,usedPills,sweepUnlocked:s.clearedDungeons.includes(s.selectedDungeon)};
       note(s, payload.defeated ? '重伤撤回住宅，本次战利品仅保留一半；已有资产不损失。' : '从秘境返回，战利品收入库存。');
       advance(s); break;
     }
     default: throw new Error('未知操作。');
   }
   if(!s.failed)advanceMinorRanks(s);
-  if (!s.won && !s.debt && s.aptitude === 2) { s.won = true; note(s, '债务清零，洗髓重生。你终于拥有了自己的修仙人生。'); }
+  if (!s.won && s.aptitude === 2) { s.won = true; note(s, '洗髓重生，完成逆天改命。家园生产与修行探索仍可继续。'); }
   return s;
 }
 
-export function transition(state,action,payload={},random=Math.random){const s=baseTransition(state,action,payload,random);trackChapter(s,state,action,payload);updateJourney(s);syncLayout(s);return s;}
+export function transition(state,action,payload={},random=Math.random,now=Date.now()){const s=baseTransition(state,action,payload,random,now);trackChapter(s,state,action,payload);updateJourney(s);return s;}
+export function tickProduction(s,now=Date.now()){settleProduction(s,now);updateJourney(s);return s;}

@@ -66,7 +66,7 @@ export function drawVillage(canvas,state,fieldPage=0,height=420) {
     const i=fieldPage*4+slot;if(i>=state.plots.length)return;
     drawSoil(c,x,y,plotSoil(state,i),i);
     const p=state.plots[i];if(p){for(let n=0;n<3;n++){
-      const ready=state.day>=p.ready;
+      const ready=p.buffer>0;
       if(!drawItem(c,CROPS[p.crop??'herb'].item,x+6+n*29,y+(ready?3:13),ready?26:18))drawSprite(c,'herb',x+9+n*28,y+9,ready?2:1,{e:ready?'#c1db8c':'#6b996a'});
     }}
   });

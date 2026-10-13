@@ -1,0 +1,17 @@
+{
+  "mode": "built-in image_gen",
+  "assets": [
+    {
+      "path": "public/art/alchemy-rooms-v1.png",
+      "original": "C:/Users/mosanbai/.codex/generated_images/01a10f51-54fa-71c0-904f-ec5583eafecd/exec-eb31bfb5-3001-4684-92e7-3d029f1db181.png",
+      "transparent_background": false,
+      "prompt": "Use case stylized-concept. Production asset atlas for a portrait Chinese fantasy mobile alchemy game. Create one square atlas with EXACTLY 3 columns and 2 rows of equal rectangular cells, NO gaps, NO grid lines, each cell is a complete portrait 2:3 alchemy room background. The six cells depict the SAME camera composition with progressively upgraded room and furnace. Painterly detailed 2D illustration, NOT pixel art, NOT photoreal 3D. All rooms have a large open alchemy cauldron centered x50% y50% of each cell, opening facing camera clearly accessible for dragging herbs into it. Furnace spans x20%-80% y35%-70%, hearth opening x50% y68%. Lower 25% of every scene is clear wooden or stone workbench suitable for later UI materials. Top20% quiet wall suitable for HUD. No UI, no text, no people. Cell row1 col1: shabby worn clay cauldron with cracks but usable, in rustic old hut with weathered timber and herb bundles, soft daylight. Row1 col2: polished bronze cauldron in repaired humble wooden workshop, jade green details. Row1 col3: heavy black iron cauldron, stone workshop and warm lamplight. Row2 col1: jade engraved rune cauldron, refined scholarly jade-tile room. Row2 col2: ornate purple-gold rare cauldron, elegant stone chamber and subtle spiritual mist. Row2 col3: celestial white jade golden legendary cauldron, bright lavish cultivation chamber, restrained ethereal glow. Same exact furnace silhouette footprint and placement in all6 cells so UI interactive hotzones match. Each furnace is EMPTY and UNLIT with visible wide bowl/open mouth, no lids obstructing material loading. Rich hand painted ancient Chinese style matching mountain herb garden, crisp silhouettes. No borders, logos, numerals, letters or buttons."
+    },
+    {
+      "path": "public/art/alchemy-process-v1.png",
+      "original": "C:/Users/mosanbai/.codex/generated_images/01a10f51-54fa-71c0-904f-ec5583eafecd/exec-af04fa1f-a943-4856-8f8d-9d2450e4a047.png",
+      "transparent_background": true,
+      "prompt": "Use case stylized-concept. Transparent production sprite atlas for hand-painted Chinese fantasy alchemy mobile game, EXACTLY2columns2rows equal square cells, four isolated objects centered with transparent margins. Upper left: a small mound of mashed green herbal paste, soft moist emerald green medicine pulp, no bowl. Upper right: large wooden traditional medicine pestle angled diagonally lowerleft to upperright, polished worn wood, no mortar. Lower left: lively small orange yellow fire flames, no background or hearth. Lower right: cluster of three glossy green-gold medicinal pills with subtle light sparkles, no container. All painted detailed2D watercolor gouache matching ancient Chinese cottage illustration, not pixel art. No text, lines, frames, grids, letters, logo. Transparent alpha background. Objects do not cross equal cell boundaries."
+    }
+  ]
+}

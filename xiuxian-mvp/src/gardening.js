@@ -8,10 +8,10 @@ export const SOILS = {
   frost: {name:'寒霜土',price:1800,house:2,color:'#4c6376',ridge:'#a1c6d5'},
 };
 export const CROPS = {
-  herb: {name:'青灵草',seed:'seed',item:'herb',days:2,yield:3,realm:0,soils:['normal','spirit','fire','frost']},
-  moon: {name:'月华仙草',seed:'moonSeed',item:'moon',days:3,yield:2,realm:1,soils:['spirit']},
-  fireHerb: {name:'焰心草',seed:'fireSeed',item:'fireHerb',days:4,yield:2,realm:1,soils:['fire']},
-  frostHerb: {name:'霜露仙草',seed:'frostSeed',item:'frostHerb',days:4,yield:2,realm:1,soils:['frost']},
+  herb: {name:'青灵草',seed:'seed',item:'herb',minutes:20,yield:3,realm:0,soils:['normal','spirit','fire','frost']},
+  moon: {name:'月华仙草',seed:'moonSeed',item:'moon',minutes:30,yield:2,realm:1,soils:['spirit']},
+  fireHerb: {name:'焰心草',seed:'fireSeed',item:'fireHerb',minutes:40,yield:2,realm:1,soils:['fire']},
+  frostHerb: {name:'霜露仙草',seed:'frostSeed',item:'frostHerb',minutes:40,yield:2,realm:1,soils:['frost']},
 };
 export const plotLimit = s => PLOT_LIMITS[s.house];
 export const expansionPrice = s => EXPANSION_PRICES[s.house];
@@ -25,7 +25,7 @@ export function plantingBlock(s,index,cropId) {
   if(s.realm<crop.realm)return '筑基后解锁';
   if(!crop.soils.includes(plotSoil(s,index)))return `需要${crop.soils.map(k=>SOILS[k].name).join('或')}`;
   if(!seedCount(s,crop.seed))return '种子不足';
-  if(s.energy<8)return '精力不足';
+
   return '';
 }
 

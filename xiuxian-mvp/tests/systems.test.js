@@ -1,7 +1,7 @@
+import {completedTransition as transition,harvestReady} from './helpers.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {initialState,transition as gameTransition,maxHP,restoreState} from '../src/game.js';
-const transition=(s,a,p)=>gameTransition(s,a,p,()=>0);
 import {EQUIPMENT,EQUIPMENT_SLOTS,itemCategory} from '../src/systems.js';
 test('丹炉逐级付费升级，境界门槛与低品质兼容',()=>{
  let s=initialState();s.cash=20000;s.inventory.herb=10;s.inventory.ore=46;

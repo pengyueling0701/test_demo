@@ -1,3 +1,4 @@
+import {plotStatus} from './idle-ui.js';
 import {project,unproject,footprint,placementProblem,unlocked,WORLD_SIZE,GRID} from './home-layout.js';
 import {drawHero} from './art.js';
 const assets={},bounds={};let terrainCache=null;
@@ -27,14 +28,14 @@ export function drawIsoHome(canvas,s,layout,edit,hero){
  for(const o of things){const b=objectBox(o);atlas(c,'buildings',{house:0,alchemy:1,plot:2,willow:3}[o.kind],b.x,b.y,b.w,b.h);
   if(o.kind==='plot'){
    const soil=s.plotSoils[o.index],p=s.plots[o.index],q=project(o.x,o.y);if(soil!=='normal'){c.fillStyle={spirit:'#77b6a8',fire:'#c47c55',frost:'#9cceef'}[soil];c.fillRect(q.x-15,q.y+6,30,3);}
-   if(p){c.fillStyle=s.day>=p.ready?'#f1d383':'#afdb88';for(let i=0;i<3;i++){c.fillRect(q.x-20+i*18,q.y-15,3,15);c.fillRect(q.x-25+i*18,q.y-10,13,3);}}else{c.fillStyle='#574e38b0';c.fillRect(q.x-26,q.y-18,52,20);}
+   if(p){c.fillStyle=p.buffer>0?'#f1d383':'#afdb88';for(let i=0;i<3;i++){c.fillRect(q.x-20+i*18,q.y-15,3,15);c.fillRect(q.x-25+i*18,q.y-10,13,3);}}else{c.fillStyle='#574e38b0';c.fillRect(q.x-26,q.y-18,52,20);}
   }
   if(o.kind==='house'&&s.house>0){c.fillStyle='#ffe3a0';c.fillRect(b.x+70,b.y+105,5,7);}
   if(edit?.selected===o.id){for(const p of footprint(o))diamond(c,project(p.x,p.y),'#e7d78355',true);}
  }
  if(hero){const p=project(hero.x,hero.y);drawHero(c,p.x-17,p.y-46,38);}
 }
-export function isoMarkup(s,layout,edit){return '<div class="iso-viewport"><div class="iso-layer"><canvas class="iso-canvas" aria-label="斜俯视清溪小院"></canvas>'+layout.objects.filter(o=>!o.stored).map(o=>{const b=objectBox(o);const p=o.kind==='plot'?s.plots[o.index]:null;return '<button class="iso-object '+(edit?.selected===o.id?'selected':'')+'" style="left:'+b.x+'px;top:'+b.y+'px;width:'+b.w+'px;height:'+b.h+'px;z-index:'+Math.floor(b.depth*10)+'" data-action="iso-object" data-object="'+o.id+'" aria-label="'+objectName(o,s)+'"><span>'+objectName(o,s)+(p?(s.day>=p.ready?' · 可收获':' · '+(p.ready-s.day)+'日'):'')+'</span></button>';}).join('')+'<button class="iso-outbound-hotspot" style="left:980px;top:1185px;width:390px;height:250px" data-action="navigate" data-page="travel" aria-label="石桥 · 外出"><span>外出</span></button></div></div>';}
+export function isoMarkup(s,layout,edit){return '<div class="iso-viewport"><div class="iso-layer"><canvas class="iso-canvas" aria-label="斜俯视清溪小院"></canvas>'+layout.objects.filter(o=>!o.stored).map(o=>{const b=objectBox(o);const p=o.kind==='plot'?s.plots[o.index]:null;return '<button class="iso-object '+(o.kind==='plot'?'plot-object ':'')+(edit?.selected===o.id?'selected':'')+'" style="left:'+b.x+'px;top:'+b.y+'px;width:'+b.w+'px;height:'+b.h+'px;z-index:'+Math.floor(b.depth*10)+'" data-action="iso-object" data-object="'+o.id+'" aria-label="'+objectName(o,s)+'">'+(o.kind==='plot'?'<i class="plot-hit-target" aria-hidden="true"></i>':'')+'<span>'+objectName(o,s)+(p?' · <b data-live="plot-'+o.index+'">'+plotStatus(s,o.index)+'</b>':'')+'</span></button>';}).join('')+'<button class="iso-outbound-hotspot" style="left:980px;top:1185px;width:390px;height:250px" data-action="navigate" data-page="travel" aria-label="石桥 · 外出"><span>外出</span></button></div></div>';}
 export function attachIsoCamera(view,camera,handlers){
  const layer=view.querySelector('.iso-layer'),points=new Map();let previous=null,dragged=false,suppress=0,longTimer=null;
  const local=e=>{const b=view.getBoundingClientRect();return {x:e.clientX-b.left,y:e.clientY-b.top};};

@@ -107,3 +107,11 @@ Create ONE production game sprite atlas for a Chinese ancient xianxia farming mo
 以 `public/art/home-landscape-v1.png` 为底图，通过内置 image_gen 编辑生成 `public/art/home-landscape-v2.png`，在家园地图东南侧溪流增加石拱桥与短石径。桥上覆盖透明点击热区，进入外出地图；热区随家园地图缩放与拖动。
 
 提示词：Edit this exact square Chinese cultivation homestead landscape image. Keep the scene composition and painterly style, add one small elegant stone footbridge over the stream at lower-right meadow around 64% from left and 73% from top, joining grassy rocky banks. Integrate with water, stones and a short path. No text, no interface, no markings.
+
+## v0.18 九宫家园与四阶段作物
+使用内置 image_gen；生成原图直接复制至public/art，不修改PNG。家园原图exec-57f299ea-a382-487b-aae2-a25baeca07b8.png，作物原图exec-9d8c1af1-5db2-47ab-9cbe-23363dedc156.png，均保留在Codex generated_images目录。
+家园提示：手绘古风山水庭院，非像素；左上练功房、右上炼丹炉；中下部严格三行三列九块空药田，顶部留状态条位置，无文字和UI。
+作物提示：透明4×4图集，等大独立单格；四行青灵草、月华仙草、焰心草、霜露仙草；四列种子（土中三粒种子）、幼苗（两片嫩叶）、植株（半成长）、成熟（茂密开花）。青灵草翠绿白花，月华仙草银蓝花，焰心草红橙琥珀花，霜露仙草冰青晶花；45度俯视手绘，非像素，无文字、框线和背景，透明alpha。游戏以CSS背景定位显示单格，原始图集保留。
+
+## v0.19 手动炼丹美术
+内置image_gen生成六档丹房背景与透明药泥、药杵、火焰、成丹图集。素材已保存public/art/alchemy-rooms-v1.png与public/art/alchemy-process-v1.png。原图保留，CSS取单格，不编辑PNG。完整提示词和原始输出路径记录在release/alchemy-art-prompts-v0.19.json。

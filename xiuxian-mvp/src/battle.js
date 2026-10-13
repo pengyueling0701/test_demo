@@ -4,13 +4,15 @@ import { drawSprite } from './pixel.js';
 import { art, drawHero, drawItem } from './art.js';
 
 import {SKILLS,skillDamage,dungeonElement,ELEMENTS,COUNTERS} from './elements.js';
+import {dungeonProgress} from './idle.js';
 const W = 2700, GROUND = 410, VIEW_WIDTH = 420;
 export function startBattle(canvas, state, onReturn, onHUD, dungeon = DUNGEONS[0], onFeedback = ()=>{}) {
   const tier = DUNGEONS.findIndex(d=>d.id===dungeon.id);
+  let completedStage=!state.clearedDungeons.includes(dungeon.id)?Math.min(2,dungeonProgress(state,dungeon.id)):0;
   const platforms = dungeonLayout(tier);
   const effects=[],guideDone=new Set();let hints=state.settings?.battleHints!==false;const colors={metal:'#ffe39a',wood:'#a4de78',water:'#93d8ec',fire:'#ef9867',earth:'#d3b38a'};
   const feedback=e=>{onFeedback(e);effects.push({...e,time:e.type==='damage'?.6:.25});};
-  const hitMob=(m,amount,skill)=>{const dealt=Math.min(m.hp,amount);m.flash=.12;feedback({type:'damage',x:m.x+m.w/2,y:m.y-25,amount:dealt,counter:skill&&COUNTERS[skill.element]===m.element,element:skill?.element});return Math.max(0,m.hp-amount);};
+  const hitMob=(m,amount,skill)=>{if(m.boss&&completedStage<2){message='先清除外围与腹地妖兽，再挑战兽王。';return m.hp;}const dealt=Math.min(m.hp,amount);m.flash=.12;feedback({type:'damage',x:m.x+m.w/2,y:m.y-25,amount:dealt,counter:skill&&COUNTERS[skill.element]===m.element,element:skill?.element});return Math.max(0,m.hp-amount);};
   const ctx = canvas.getContext('2d');
   const bounds=canvas.getBoundingClientRect?.();
   let viewHeight=bounds?.width?Math.max(480,Math.min(760,Math.round(VIEW_WIDTH*bounds.height/bounds.width))):640;
@@ -23,6 +25,7 @@ export function startBattle(canvas, state, onReturn, onHUD, dungeon = DUNGEONS[0
   const refreshHeal=()=>{p.healItem=Object.keys(healingStock).filter(k=>ITEMS[k].heal&&healingStock[k]>0).sort((a,b)=>ITEMS[b].grade-ITEMS[a].grade)[0]??initialHeal;p.heal=healingStock[p.healItem];};
   const mobs = [350, 670, 1130, 1450, 1870, 2370].map((x,i) => ({ x, y: GROUND - 36, hp: 45 + i * 6 + tier * 10, max: 45 + i * 6 + tier * 10, w: 38, h: 36, windup: 0, cooldown: 0, element:dungeonElement(dungeon),boss: false }));
   mobs.push({ x: 2110, y: GROUND - 80, hp: 240 + tier * 30, max: 240 + tier * 30, w: 76, h: 80, windup: 0, cooldown: 0, element:dungeonElement(dungeon),boss: true });
+  if(completedStage){mobs.slice(0,completedStage===1?2:5).forEach(m=>m.hp=0);p.x=completedStage===1?820:1970;}
   const pickups = [
     { x: platforms[2].x+85, y: platforms[2].y-25, item: 'moon', qty: 2+Math.floor(tier/3) },
     { x: platforms[3].x+95, y: platforms[3].y-25, item: 'ore', qty: dungeon.theme==='cave'?8:3+Math.floor(tier/2) },
@@ -37,7 +40,7 @@ export function startBattle(canvas, state, onReturn, onHUD, dungeon = DUNGEONS[0
   const finish = defeated => {
     if (ended) return;
     ended = true; cancelAnimationFrame(frame); window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); window.removeEventListener('blur', blur); window.removeEventListener('resize',syncPause); window.removeEventListener('focus',syncPause); if(typeof document!=='undefined')document.removeEventListener('visibilitychange',syncPause);
-    onReturn({ hp: p.hp, mana: p.mana, toxin: p.toxin, heal:p.heal,healItem:p.healItem,healingStock:{...healingStock},loot:Object.fromEntries(Object.entries(loot).map(([id,qty])=>[['herb','moon','core'].includes(id)&&tier>=2?id+'_q'+Math.min(5,1+Math.floor(tier/2)):id,qty])), doubleJump, bossDefeated, defeated });
+    onReturn({ hp: p.hp, mana: p.mana, toxin: p.toxin, heal:p.heal,healItem:p.healItem,healingStock:{...healingStock},loot:Object.fromEntries(Object.entries(loot).map(([id,qty])=>[['herb','moon','core'].includes(id)&&tier>=2?id+'_q'+Math.min(5,1+Math.floor(tier/2)):id,qty])), completedStage,doubleJump, bossDefeated, defeated });
   };
   const trigger = key => {
     if (ended || paused) return;
@@ -136,15 +139,22 @@ export function startBattle(canvas, state, onReturn, onHUD, dungeon = DUNGEONS[0
       else if(Math.abs(distance)<(m.boss?105:48) && m.cooldown<=0 && p.y+p.h>m.y+15){m.windup=tier===0?(m.boss?1:.8):(m.boss?.65:.5);m.facing=Math.sign(distance)||1;}
       else if(Math.abs(distance)<240 && m.cooldown<=0)m.x+=Math.sign(distance)*(m.boss?42:58)*dt;
     });
+    {
+      const stage=completedStage;
+      if(completedStage===0&&mobs.slice(0,2).every(m=>m.hp<=0))completedStage=1;
+      if(completedStage===1&&mobs.slice(2,5).every(m=>m.hp<=0))completedStage=2;
+      if(completedStage===2&&bossDefeated)completedStage=3;
+      if(stage!==completedStage){message=['','外围已平定！返回领取更高挂机收益，下次从腹地继续。','腹地已平定！返回后收益提升，下次直达首领区域。',dungeon.name+'通关！挂机效率再次提高。'][completedStage];feedback({type:'stage',stage:completedStage,x:p.x,y:p.y});}
+    }
     camera=Math.max(0,Math.min(W-VIEW_WIDTH,p.x-VIEW_WIDTH*.4));render();
-    hudTick+=dt;if(hudTick>.1){onHUD({hp:p.hp,maxHP:maxHP(state),mana:p.mana,maxMana:maxMana(state),toxin:p.toxin,heal:p.heal,healItem:p.healItem,loot,doubleJump,hint:hints&&tier===0?(!guideDone.has('right')?'按住左右移动，入口区域安全':!guideDone.has('jump')?'点击跳跃，越过石台':!guideDone.has('attack')?'点击攻击，近身挥剑':!guideDone.has('skill')?'点击技能释放，金克木伤害×2':'向右寻御风碑，二段跳后回访高处药谷'):''});hudTick=0;}
+    hudTick+=dt;if(hudTick>.1){onHUD({hp:p.hp,maxHP:maxHP(state),mana:p.mana,maxMana:maxMana(state),toxin:p.toxin,heal:p.heal,healItem:p.healItem,loot,doubleJump,completedStage,hint:hints&&tier===0?(!guideDone.has('right')?'按住左右移动，入口区域安全':!guideDone.has('jump')?'点击跳跃，越过石台':!guideDone.has('attack')?'点击攻击，近身挥剑':!guideDone.has('skill')?'点击技能释放，金克木伤害×2':'向右寻御风碑，二段跳后回访高处药谷'):''});hudTick=0;}
     if(p.hp<=0){finish(true);return;}frame=requestAnimationFrame(tick);
   };
   frame=requestAnimationFrame(tick);
   return {
     setHints(value){hints=value;},
     press(key){keys.add(key);trigger(key);}, release(key){keys.delete(key);}, retreat(){finish(false);},
-    snapshot(){return {x:p.x,y:p.y,hp:p.hp,doubleJump,camera,viewWidth:VIEW_WIDTH,viewHeight,paused,dungeonId:dungeon.id,enemyHP:mobs.map(m=>m.hp),enemyElements:mobs.map(m=>m.element),enemies:mobs.map(m=>({x:m.x,hp:m.hp,boss:m.boss})),platforms:platforms.map(t=>({...t}))};},
+    snapshot(){return {x:p.x,y:p.y,hp:p.hp,doubleJump,completedStage,camera,viewWidth:VIEW_WIDTH,viewHeight,paused,dungeonId:dungeon.id,enemyHP:mobs.map(m=>m.hp),enemyElements:mobs.map(m=>m.element),enemies:mobs.map(m=>({x:m.x,hp:m.hp,boss:m.boss})),platforms:platforms.map(t=>({...t}))};},
     dispose(){if(!ended){ended=true;cancelAnimationFrame(frame);window.removeEventListener('keydown',down);window.removeEventListener('keyup',up);window.removeEventListener('blur',blur);window.removeEventListener('resize',syncPause);window.removeEventListener('focus',syncPause);if(typeof document!=='undefined')document.removeEventListener('visibilitychange',syncPause);}}
   };
 }

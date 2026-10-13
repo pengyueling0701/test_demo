@@ -1,7 +1,9 @@
+import {DUNGEONS} from '../src/dungeons.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { startBattle } from '../src/battle.js';
 import { initialState, maxHP } from '../src/game.js';
+import {WEAPONS} from '../src/game.js';
 
 // Exercise the actual frame loop and controls with a deterministic canvas and clock.
 function harness(state, dungeon) {
@@ -98,3 +100,38 @@ test('秘境禁止未携带技能，回灵丹恢复法力并结算库存',()=>{
 });
 
 test('独立命中反馈标识克制，连续点击冷却不重复伤害，战斗提示可关闭',()=>{const s=initialState();s.realm=1;s.hp=140;s.mana=90;const h=harness(s);try{h.step(8);assert.ok(h.hud.hint);h.engine.setHints(false);h.engine.press('right');h.step(50);h.engine.release('right');h.engine.press('skill-metal');h.step(8);assert.ok(h.feedback.some(e=>e.type==='skill'));assert.ok(h.feedback.some(e=>e.type==='damage'&&e.counter));const hp=h.engine.snapshot().enemyHP[0],mana=h.hud.mana;h.engine.press('skill-metal');h.step(8);assert.equal(h.engine.snapshot().enemyHP[0],hp);assert.equal(h.hud.mana,mana);assert.equal(h.hud.hint,'');}finally{h.cleanup();}});
+
+test('青岚关卡由击败指定妖兽触发，越过区域不能通关，重试从检查点开始',()=>{
+ const s=initialState();s.realm=1;s.hp=100000;let h=harness(s);
+ try{h.engine.press('right');h.step(1000);h.engine.release('right');assert.equal(h.engine.snapshot().completedStage,0);h.engine.retreat();assert.equal(h.result.completedStage,0);}finally{h.cleanup();}
+ s.dungeonStages.qinglan=2;h=harness(s);try{const snap=h.engine.snapshot();assert.equal(snap.x,1970);assert.equal(snap.completedStage,2);assert.ok(snap.enemyHP.slice(0,5).every(n=>n===0));h.engine.retreat();assert.equal(h.result.completedStage,2);}finally{h.cleanup();}
+});
+test('青岚击败外围与腹地妖兽推进两关，首领通关保持真实攻击结算',()=>{
+ const s=initialState();s.realm=3;s.hp=100000;s.mana=100000;const old=WEAPONS.wood.attack;WEAPONS.wood.attack=10000;const h=harness(s);
+ try{
+  for(let turn=0;turn<220&&h.engine.snapshot().completedStage<3;turn++){
+   const snap=h.engine.snapshot(),target=snap.enemies.find((m,i)=>m.hp>0&&(i<5||m.boss));if(!target)break;
+   const right=target.x>snap.x;h.engine.press(right?'right':'left');h.engine.release(right?'left':'right');h.step(12);
+   h.engine.press('attack');h.engine.release('attack');h.step(12);
+  }
+  assert.equal(h.engine.snapshot().completedStage,3);h.engine.retreat();assert.equal(h.result.bossDefeated,true);assert.equal(h.result.completedStage,3);
+ }finally{h.cleanup();WEAPONS.wood.attack=old;}
+});
+
+test('筑基基础备战可通关青岚三关，保留血量法力与丹药结算',()=>{
+ const s=initialState();s.realm=1;s.weapon='spirit';s.weapons.push('spirit');s.equipped.body='robe';s.hp=maxHP(s);s.mana=90;s.inventory.heal=4;const h=harness(s);
+ try{
+  for(let turn=0;turn<400&&h.engine.snapshot().completedStage<3&&!h.result;turn++){
+   const snap=h.engine.snapshot(),target=snap.enemies.find((m,i)=>m.hp>0&&(i<5||m.boss));if(!target)break;
+   if(snap.hp<110){h.engine.press('heal');h.engine.release('heal');}
+   const right=target.x>snap.x;h.engine.press(right?'right':'left');h.engine.release(right?'left':'right');h.step(12);
+   h.engine.press('skill-metal');h.engine.release('skill-metal');h.engine.press('attack');h.engine.release('attack');h.step(24);
+  }
+  assert.equal(h.engine.snapshot().completedStage,3);assert.ok(h.engine.snapshot().hp>0);h.engine.retreat();assert.equal(h.result.defeated,false);assert.equal(h.result.bossDefeated,true);
+ }finally{h.cleanup();}
+});
+
+test('十个秘境都可从腹地检查点重试，击败首领后完成第三关',()=>{
+ const old=WEAPONS.wood.attack;WEAPONS.wood.attack=10000;
+ try{for(const dungeon of DUNGEONS){const s=initialState();s.realm=3;s.hp=10000;s.dungeonStages[dungeon.id]=2;const h=harness(s,dungeon);try{assert.equal(h.engine.snapshot().completedStage,2,dungeon.id);assert.equal(h.engine.snapshot().x,1970);h.engine.press('right');h.step(40);h.engine.release('right');h.engine.press('attack');h.engine.release('attack');h.step(12);assert.equal(h.engine.snapshot().completedStage,3,dungeon.id);h.engine.retreat();assert.equal(h.result.bossDefeated,true);}finally{h.cleanup();}}}finally{WEAPONS.wood.attack=old;}
+});

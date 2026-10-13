@@ -11,8 +11,8 @@ export function brewEconomics(s,id,items,recipes,chance){
  return {direct,sale,expected:Math.round(sale*chance/100),margin:Math.round(sale*chance/100)-direct,used};
 }
 export const FARM_ARTS={
- tend:{name:'引露术',realm:0,level:7,mana:12,energy:8,text:'照料全部未成熟药田，本轮每块收获+1株；每轮仅一次。'},
- hasten:{name:'催生术',realm:1,level:1,mana:24,energy:12,text:'全部未成熟作物提前1日成熟；每轮仅一次，可与引露术配合。'},
+ tend:{name:'引露术',realm:0,level:7,mana:12,energy:8,text:'照料已启用药田，本次持续培育每批+1株；换种前仅一次。'},
+ hasten:{name:'催生术',realm:1,level:1,mana:24,energy:12,text:'提前首次产出30秒或推进下一轮25%；换种前仅一次，可与引露术配合。'},
 };
 export const artUnlocked=(s,id)=>s.realm>FARM_ARTS[id].realm||(s.realm===FARM_ARTS[id].realm&&s.level>=FARM_ARTS[id].level);
 export const growthMilestones=s=>[
