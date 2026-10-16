@@ -6,7 +6,7 @@ import { initialState, maxHP } from '../src/game.js';
 import {WEAPONS} from '../src/game.js';
 
 // Exercise the actual frame loop and controls with a deterministic canvas and clock.
-function harness(state, dungeon) {
+function harness(state, dungeon, random=()=>.99) {
   const originals = { window:globalThis.window, raf:globalThis.requestAnimationFrame, cancel:globalThis.cancelAnimationFrame };
   const feedback=[];let callback, hud, result, now=performance.now();
   const rects=[];
@@ -19,7 +19,7 @@ function harness(state, dungeon) {
   globalThis.window={addEventListener(type,fn){listeners.set(type,fn);},removeEventListener(type){listeners.delete(type);}};
   globalThis.requestAnimationFrame=fn=>{callback=fn;return 1;};
   globalThis.cancelAnimationFrame=()=>{callback=null;};
-  const engine=startBattle({getContext:()=>context},state,r=>result=r,h=>hud=h,dungeon,e=>feedback.push(e));
+  const engine=startBattle({getContext:()=>context},state,r=>result=r,h=>hud=h,dungeon,e=>feedback.push(e),random);
   return {
     engine, feedback, get hud(){return hud;}, get result(){return result;},
     step(frames){for(let i=0;i<frames && callback;i++){now+=16;const fn=callback;callback=null;fn(now);}},
@@ -29,7 +29,7 @@ function harness(state, dungeon) {
   };
 }
 test('真实战斗循环可绘制、移动、释放按键、技能耗灵与撤离',()=>{
-  const s=initialState();s.realm=1;s.hp=140;s.mana=90;
+  const s=initialState();s.learnedSkills=['metal'];s.skillLoadout=['metal'];s.realm=1;s.hp=140;s.mana=90;
   const h=harness(s);
   try{
     h.step(10);assert.equal(h.hud.hp,140);assert.ok(h.rects.length>0);
@@ -70,14 +70,14 @@ test('被妖兽击败自动结算，无法重复发放掉落',()=>{
     const result=h.result;h.engine.retreat();assert.equal(h.result,result);
   }finally{h.cleanup();}
 });
-test('单跳可以登上80高平台；探索石碑解锁二段跳',()=>{
+test('单跳可以登上80高平台；探索古碑不再解锁二段跳',()=>{
   const s=initialState();s.realm=2;s.hp=maxHP(s);s.armor=true;s.weapon='spirit';
   const h=harness(s);
   try{
     h.step(8);h.engine.press('right');h.step(46);h.engine.press('jump');h.step(26);
     assert.ok(h.engine.snapshot().y+48<330,'single jump exceeds the first platform height');
     for(let i=0;i<180&&!h.result;i++){if(i%20===0)h.engine.press('jump');if(i%21===0)h.engine.press('dodge');if(i%20===0)h.engine.press('attack');h.step(2);}
-    h.engine.release('right');if(!h.result)h.engine.retreat();assert.equal(h.result.doubleJump,true);
+    h.engine.release('right');if(!h.result)h.engine.retreat();assert.equal(h.result.doubleJump,false);assert.equal(h.result.exploredStele,true);
   }finally{h.cleanup();}
 });
 
@@ -90,7 +90,7 @@ test('战斗高品质回血丹用尽切换低品质，返程保留各库存',()=
 });
 
 test('秘境禁止未携带技能，回灵丹恢复法力并结算库存',()=>{
- const s=initialState();s.realm=1;s.mana=10;s.inventory.manaPill=2;
+ const s=initialState();s.learnedSkills=['metal'];s.skillLoadout=['metal'];s.realm=1;s.mana=10;s.inventory.manaPill=2;
  const h=harness(s);try{
  h.engine.press('skill-fire');h.step(10);assert.equal(h.hud.mana,10);
  h.engine.press('mana');h.step(10);assert.equal(h.hud.mana,50);assert.equal(h.hud.toxin,18);
@@ -99,7 +99,7 @@ test('秘境禁止未携带技能，回灵丹恢复法力并结算库存',()=>{
  }finally{h.cleanup();}
 });
 
-test('独立命中反馈标识克制，连续点击冷却不重复伤害，战斗提示可关闭',()=>{const s=initialState();s.realm=1;s.hp=140;s.mana=90;const h=harness(s);try{h.step(8);assert.ok(h.hud.hint);h.engine.setHints(false);h.engine.press('right');h.step(50);h.engine.release('right');h.engine.press('skill-metal');h.step(8);assert.ok(h.feedback.some(e=>e.type==='skill'));assert.ok(h.feedback.some(e=>e.type==='damage'&&e.counter));const hp=h.engine.snapshot().enemyHP[0],mana=h.hud.mana;h.engine.press('skill-metal');h.step(8);assert.equal(h.engine.snapshot().enemyHP[0],hp);assert.equal(h.hud.mana,mana);assert.equal(h.hud.hint,'');}finally{h.cleanup();}});
+test('独立命中反馈标识克制，连续点击冷却不重复伤害，战斗提示可关闭',()=>{const s=initialState();s.learnedSkills=['metal'];s.skillLoadout=['metal'];s.realm=1;s.hp=140;s.mana=90;const h=harness(s);try{h.step(8);assert.ok(h.hud.hint);h.engine.setHints(false);h.engine.press('right');h.step(50);h.engine.release('right');h.engine.press('skill-metal');h.step(8);assert.ok(h.feedback.some(e=>e.type==='skill'));assert.ok(h.feedback.some(e=>e.type==='damage'&&e.counter));const hp=h.engine.snapshot().enemyHP[0],mana=h.hud.mana;h.engine.press('skill-metal');h.step(8);assert.equal(h.engine.snapshot().enemyHP[0],hp);assert.equal(h.hud.mana,mana);assert.equal(h.hud.hint,'');}finally{h.cleanup();}});
 
 test('青岚关卡由击败指定妖兽触发，越过区域不能通关，重试从检查点开始',()=>{
  const s=initialState();s.realm=1;s.hp=100000;let h=harness(s);
@@ -135,3 +135,8 @@ test('十个秘境都可从腹地检查点重试，击败首领后完成第三�
  const old=WEAPONS.wood.attack;WEAPONS.wood.attack=10000;
  try{for(const dungeon of DUNGEONS){const s=initialState();s.realm=3;s.hp=10000;s.dungeonStages[dungeon.id]=2;const h=harness(s,dungeon);try{assert.equal(h.engine.snapshot().completedStage,2,dungeon.id);assert.equal(h.engine.snapshot().x,1970);h.engine.press('right');h.step(40);h.engine.release('right');h.engine.press('attack');h.engine.release('attack');h.step(12);assert.equal(h.engine.snapshot().completedStage,3,dungeon.id);h.engine.retreat();assert.equal(h.result.bossDefeated,true);}finally{h.cleanup();}}}finally{WEAPONS.wood.attack=old;}
 });
+
+test('横版战斗中增益丹生效，不重复消耗，返程库存计入结算',()=>{const s=initialState();s.realm=1;s.hp=140;s.inventory.guardPill=2;const h=harness(s);try{h.engine.press('buff-defense');h.engine.release('buff-defense');h.step(10);assert.match(h.hud.buffs,/防御\+4/);assert.equal(h.hud.toxin,12);h.engine.press('buff-defense');h.engine.release('buff-defense');h.step(10);assert.equal(h.hud.toxin,12);h.engine.retreat();assert.equal(h.result.healingStock.guardPill,1);assert.deepEqual(s.temporaryBuffs,{});}finally{h.cleanup();}});
+
+test('横版秘境灵兽可切换防御承伤，攻击状态以属性技能协战',()=>{const s=initialState();s.realm=1;s.hp=140;s.pets=[{id:'pet-1',name:'火灵狼',element:'fire',maxHP:100,skillDamage:18,defense:3,sprite:1}];s.selectedPet='pet-1';const h=harness(s,DUNGEONS[1],()=>0);try{h.engine.press('pet-stance');h.engine.press('right');h.step(70);h.engine.release('right');h.step(70);const before=h.engine.snapshot();assert.equal(before.pet.stance,'defend');assert.ok(before.pet.hp<100&&before.pet.hp>0);assert.equal(before.hp,140);h.engine.press('pet-stance');h.step(15);assert.equal(h.engine.snapshot().pet.stance,'attack');assert.ok(h.engine.snapshot().enemyHP.some((hp,i)=>hp<before.enemyHP[i]));h.engine.retreat();assert.equal(s.pets.length,1);}finally{h.cleanup();}});
+test('横版低血妖兽可驯服，御兽丹准确结算且不重复发击杀资源',()=>{const s=initialState();s.inventory.tamePill=1;let roll=.99;const h=harness(s,undefined,()=>roll);try{h.step(10);h.engine.press('right');h.step(50);h.engine.release('right');for(let i=0;i<15&&h.engine.snapshot().enemyHP[0]>13.5;i++){h.engine.press('attack');h.step(20);}assert.ok(h.engine.snapshot().enemyHP[0]>0&&h.engine.snapshot().enemyHP[0]<=13.5);roll=0;h.engine.press('tame');assert.equal(s.pets.length,1);assert.equal(s.inventory.tamePill,0);h.engine.retreat();assert.equal(h.result.usedTame.tamePill,1);assert.equal(h.result.healingStock.tamePill,0);assert.equal(h.result.loot.hide,0);}finally{h.cleanup();}});

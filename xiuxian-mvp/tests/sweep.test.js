@@ -18,9 +18,4 @@ test('每境独立计时，重复通关不重置冷却，读档保留状态',()=
   s=transition(s,'return',{hp:100,mana:60,toxin:0,heal:0,bossDefeated:true,loot:{}});assert.equal(s.sweepReadyDays.qinglan,8);
   s=restoreState(s);assert.equal(sweepAvailable(s,'qinglan'),false);assert.equal(sweepAvailable(s,'creek'),true);
 });
-test('扫荡奖励容量不足时不扣次数、不发放部分资源',()=>{
-  let s=initialState();s.clearedDungeons=['qinglan'];s.inventory.herb=52;
-  const before=structuredClone(s);assert.throws(()=>transition(s,'sweep',{dungeonId:'qinglan'}));assert.deepEqual(s,before);
-  s.inventory.herb=0;const loot=sweepLoot(DUNGEONS[0]);s=transition(s,'sweep',{dungeonId:'qinglan'});
-  for(const [item,qty]of Object.entries(loot))assert.equal(s.inventory[item],qty);
-});
+test('满包扫荡扣一次精力与次数，放不下的战利品保留待领',()=>{let s=initialState();s.clearedDungeons=['qinglan'];s.inventory.herb=999*9;const loot=sweepLoot(DUNGEONS[0]);s=transition(s,'sweep',{dungeonId:'qinglan'});assert.equal(s.energy,70);assert.equal(s.sweepReadyDays.qinglan,8);for(const [id,n] of Object.entries(loot))assert.equal(s.pendingLoot[id],n);s=transition(s,'sell',{item:'herb',qty:999*5});s=transition(s,'claim-loot');for(const [id]of Object.entries(loot))assert.equal(s.pendingLoot[id],0);});

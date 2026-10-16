@@ -5,5 +5,5 @@ dist/
 .env.*
 !.env.example
 release/*.zip
-!release/yilu-chenmeng-h5-v0.19.0.zip
+!release/yilu-chenmeng-h5-v0.25.1.zip
 

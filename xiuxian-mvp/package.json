@@ -1,6 +1,6 @@
 {
   "name": "xiuxian-farming-mvp",
-  "version": "0.19.0",
+  "version": "0.25.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -13,3 +13,6 @@
     "vite": "^7.0.0"
   }
 }
+
+
+

@@ -28,9 +28,14 @@ export function drawHero(ctx,x,y,height=56,face=1) {
   ctx.save();ctx.translate(Math.round(x+width/2),Math.round(y));if(face<0)ctx.scale(-1,1);
   ctx.drawImage(art.hero,b.x,b.y,b.w,b.h,-width/2,0,width,height);ctx.restore();return true;
 }
-export const itemCells={foundationPill:[1,0],goldenPill:[2,0],nascentPill:[3,0],dew:[1,0],manaPill:[1,0],manaPill1:[1,0],heal:[0,0],spirit:[1,0],advanced:[2,0],supreme:[3,0],seed:[0,1],moonSeed:[0,1],fireSeed:[0,1],frostSeed:[0,1],herb:[1,1],moon:[1,1],fireHerb:[1,1],frostHerb:[1,1],ore:[2,1],core:[3,1]};
+export const itemCells={mightPill:[2,0],guardPill:[3,0],keenPill:[1,0],windPill:[0,0],foundationPill:[1,0],goldenPill:[2,0],nascentPill:[3,0],dew:[1,0],manaPill:[1,0],manaPill1:[1,0],heal:[0,0],spirit:[1,0],advanced:[2,0],supreme:[3,0],fruitSeed:[0,1],seed:[0,1],moonSeed:[0,1],fireSeed:[0,1],frostSeed:[0,1],herb:[1,1],moon:[1,1],fireHerb:[1,1],frostHerb:[1,1],ore:[2,1],core:[3,1]};
 export function itemIcon(key) {
+  if(key.split('_q')[0]==='hide')return '<img class="pixel-icon generated-icon" src="'+artUrl('beast-hide.svg')+'" alt="兽皮">';
   if(key.startsWith('book_'))return `<span class="pixel-icon generated-icon skillbook-icon" aria-hidden="true" style="background-image:url('${artUrl('skillbook-v1.png')}')"></span>`;
+  if(key.split('_q')[0]==='fruitSeed')return '<span class="pixel-icon generated-icon" aria-hidden="true" style="background-image:url('+artUrl('spirit-fruit-stages-v1.png')+');background-size:400% 100%;background-position:0% 0"></span>';
+  if(key.split('_q')[0]==='fruit')return '<span class="pixel-icon generated-icon" aria-hidden="true" style="background-image:url('+artUrl('spirit-fruit-stages-v1.png')+');background-size:400% 100%;background-position:100% 0"></span>';
+  if(key.startsWith('tamePill'))key='heal';
+  if(key.startsWith('relic_'))key='core';if(key.startsWith('wash_'))key='supreme';
   key=key.split('_q')[0];
   const [col,row]=itemCells[key]??(key.startsWith('heal')?[0,0]:['mid','rare'].includes(key)?[2,0]:[1,1]);
   return `<span class="pixel-icon generated-icon" aria-hidden="true" style="background-image:url('${artUrl('items.png')}');background-position:${col*100/3}% ${row*100}%"></span>`;

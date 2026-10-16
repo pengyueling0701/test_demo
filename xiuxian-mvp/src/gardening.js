@@ -8,7 +8,8 @@ export const SOILS = {
   frost: {name:'寒霜土',price:1800,house:2,color:'#4c6376',ridge:'#a1c6d5'},
 };
 export const CROPS = {
-  herb: {name:'青灵草',seed:'seed',item:'herb',minutes:20,yield:3,realm:0,soils:['normal','spirit','fire','frost']},
+  herb: {name:'青灵草',seed:'seed',item:'herb',minutes:20,yield:2,realm:0,soils:['normal','spirit','fire','frost']},
+  fruit: {name:'饲灵果',unit:'颗',seed:'fruitSeed',item:'fruit',minutes:20,yield:2,realm:0,soils:['normal','spirit','fire','frost']},
   moon: {name:'月华仙草',seed:'moonSeed',item:'moon',minutes:30,yield:2,realm:1,soils:['spirit']},
   fireHerb: {name:'焰心草',seed:'fireSeed',item:'fireHerb',minutes:40,yield:2,realm:1,soils:['fire']},
   frostHerb: {name:'霜露仙草',seed:'frostSeed',item:'frostHerb',minutes:40,yield:2,realm:1,soils:['frost']},
@@ -16,7 +17,7 @@ export const CROPS = {
 export const plotLimit = s => PLOT_LIMITS[s.house];
 export const expansionPrice = s => EXPANSION_PRICES[s.house];
 export const plotSoil = (s,index) => s.plotSoils?.[index] ?? 'normal';
-export const harvestYield = (s,p) => (CROPS[p?.crop??'herb']?.yield??3)+Math.min(3,Math.floor(s.farming/12))+(p?.tend?1:0);
+export const harvestYield = (s,p) => (CROPS[p?.crop??'herb']?.yield??2)+Math.floor(Math.sqrt(Math.max(0,s.farming??0)/12))+(p?.tend?1:0);
 export function plantingBlock(s,index,cropId) {
   const crop=CROPS[cropId];
   if(!crop)return '未知种子';
@@ -29,6 +30,6 @@ export function plantingBlock(s,index,cropId) {
   return '';
 }
 
-assignElements(SOILS,{spirit:'wood',fire:'fire',frost:'water'});assignElements(CROPS,{herb:'wood',moon:'water',fireHerb:'fire',frostHerb:'water'});
+assignElements(SOILS,{spirit:'wood',fire:'fire',frost:'water'});assignElements(CROPS,{herb:'wood',fruit:'wood',moon:'water',fireHerb:'fire',frostHerb:'water'});
 
 export const seedCount=(s,seed)=>Object.entries(s.inventory).filter(([id])=>id===seed||id.startsWith(seed+'_q')).reduce((n,[,qty])=>n+qty,0);

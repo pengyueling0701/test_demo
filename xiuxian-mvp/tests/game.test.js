@@ -8,7 +8,7 @@ test('开局炼气五级，500资金，取消债务与催收',()=>{const s=initi
 test('旧借贷接口拒绝操作，不再修改资产',()=>{
   const s=initialState();for(const amount of [-1,.5,1000])assert.throws(()=>transition(s,'repay',{amount}));assert.throws(()=>transition(s,'borrow',{amount:1}));assert.equal(s.cash,500);
 });
-test('药田启用后持续生产，领取保留培育；背包容量错误保持原状态',()=>{let s=transition(initialState(),'plant',{index:0});assert.equal(s.inventory.seed,7);assert.throws(()=>transition(s,'harvest',{index:0}));s=harvestReady(s);assert.equal(s.inventory.herb,3);assert.ok(s.plots[0].continuous);s.inventory.herb=60;const before=structuredClone(s);assert.throws(()=>transition(s,'buy',{item:'seed'}));assert.deepEqual(s,before);});
+test('药田启用后持续生产，领取保留培育；背包容量错误保持原状态',()=>{let s=transition(initialState(),'plant',{index:0});assert.equal(s.inventory.seed,7);assert.throws(()=>transition(s,'harvest',{index:0}));s=harvestReady(s);assert.equal(s.inventory.herb,2);assert.equal(s.plots[0],null);s.inventory.herb=999*9;s.inventory.seed=999;const before=structuredClone(s);assert.throws(()=>transition(s,'buy',{item:'seed'}));assert.deepEqual(s,before);});
 
 test('订单七日刷新，交付不可重复，不足不扣材料',()=>{
   let s=initialState();assert.throws(()=>transition(s,'order',{id:s.orders[0].id}));s.inventory.herb=4;
@@ -18,14 +18,14 @@ test('订单七日刷新，交付不可重复，不足不扣材料',()=>{
 test('高级商品有境界门槛，极品丹药不能交易',()=>{
   const s=initialState();s.cash=10000;s.inventory.supreme=1;assert.throws(()=>transition(s,'buy',{item:'advanced'}));assert.throws(()=>transition(s,'buy',{item:'supreme'}));assert.throws(()=>transition(s,'sell',{item:'supreme'}));
   s.realm=1;assert.throws(()=>transition(s,'buy',{item:'advanced'}));
-  s.realm=2;assert.equal(transition(s,'buy',{item:'advanced'}).inventory.advanced,1);
+  s.realm=2;assert.throws(()=>transition(s,'buy',{item:'advanced'}));
 });
 test('丹炉与材料门槛、队列成丹以及无精力消耗',()=>{
   let s=initialState();s.inventory.herb=4;s=transition(s,'brew',{item:'heal'});assert.equal(s.inventory.heal,1);assert.equal(s.inventory.herb,2);assert.equal(s.cash,500);assert.equal(s.energy,100);
 });
 test('炼气十级突破筑基必须消耗筑基丹，寿元与额度提高且不重置年龄',()=>{
   const s=initialState();s.level=10;s.cultivation=cultivationRequired(s);s.ageDays=360;assert.throws(()=>transition(s,'breakthrough'),/筑基丹/);assert.equal(s.cultivation,cultivationRequired(s));
-  s.inventory.foundationPill=1;const n=transition(s,'breakthrough');assert.equal(n.realm,1);assert.equal(n.level,1);assert.equal(n.inventory.foundationPill,0);assert.equal(n.ageDays,360);assert.ok(lifeLeft(n)>lifeLeft(s));assert.ok(credit(n)>credit(s));assert.throws(()=>transition(s,'expedition'));assert.equal(transition(n,'expedition').day,2);
+  s.inventory.foundationPill=1;const n=transition(s,'breakthrough');assert.equal(n.realm,1);assert.equal(n.level,1);assert.equal(n.inventory.foundationPill,0);assert.equal(n.ageDays,360);assert.ok(lifeLeft(n)>lifeLeft(s));assert.ok(credit(n)>credit(s));assert.equal(transition(s,'expedition').selectedDungeon,'qinglan');assert.equal(transition(n,'expedition').day,2);
 });
 test('开局已收录三张突破丹方，且每次大境界突破消耗对应丹药',()=>{
   const s=initialState();
@@ -47,8 +47,8 @@ test('结金丹和元婴丹可在对应大境界突破前炼制',()=>{
   s.realm=2;s.inventory.moon=4;s.inventory.frostHerb=3;s.inventory.core=2;
   s=transition(s,'brew',{item:'nascentPill'});assert.equal(s.inventory.nascentPill,1);
 });
-test('筑基丹可从丹药商店购入，只作突破材料不能服用或出售',()=>{
-  const s=initialState();s.cash=3000;const n=transition(s,'buy',{item:'foundationPill'});assert.equal(n.inventory.foundationPill,1);assert.equal(n.cash,1200);assert.throws(()=>transition(n,'consume',{item:'foundationPill'}),/不能直接服用/);assert.throws(()=>transition(n,'sell',{item:'foundationPill'}),/不收购/);
+test('商店不售筑基丹，既有筑基丹只作突破材料不能服用或出售',()=>{
+  const s=initialState();s.cash=3000;assert.throws(()=>transition(s,'buy',{item:'foundationPill'}));const n=structuredClone(s);n.inventory.foundationPill=1;assert.equal(n.cash,3000);assert.throws(()=>transition(n,'consume',{item:'foundationPill'}),/不能直接服用/);assert.throws(()=>transition(n,'sell',{item:'foundationPill'}),/不收购/);
   const oldSave=structuredClone(s);delete oldSave.inventory.foundationPill;const restored=restoreState(oldSave);assert.equal(restored.inventory.foundationPill,0);
 });
 test('境界内修为满当前递增门槛自动升一级，境界十级仍保留突破门槛',()=>{
@@ -67,6 +67,7 @@ test('战败只损失一半本次战利品，返家自动回满气血并推进�
   const s=initialState();s.realm=1;s.inventory.herb=10;
   const n=transition(s,'return',{hp:0,mana:10,toxin:50,heal:0,loot:{herb:5,core:3},defeated:true,doubleJump:true});assert.equal(n.inventory.herb,12);assert.equal(n.inventory.core,1);assert.equal(n.hp,maxHP(s));assert.equal(n.doubleJump,true);assert.equal(n.day,2);assert.equal(n.toxin,44);
 });
-test('游戏日推进不催债，服用洗髓丹完成改命后仍可经营',()=>{const s=initialState();s.inventory.herb=10;advance(s,30);assert.equal(s.day,31);assert.equal(s.cash,500);assert.equal(s.inventory.herb,10);assert.equal(s.nextCollection,null);s.inventory.supreme=1;const n=transition(s,'consume',{item:'supreme'});assert.equal(n.won,true);assert.equal(n.aptitude,2);assert.equal(transition(n,'plant',{index:0}).plots[0].continuous,true);});
+test('游戏日推进不催债，服用洗髓丹完成改命后仍可经营',()=>{const s=initialState();s.inventory.herb=10;advance(s,30);assert.equal(s.day,31);assert.equal(s.cash,500);assert.equal(s.inventory.herb,10);assert.equal(s.nextCollection,null);s.aptitudeLevel=9;s.inventory.supreme=1;const n=transition(s,'consume',{item:'supreme'});assert.equal(n.won,true);assert.equal(n.aptitude,2);assert.equal(transition(n,'plant',{index:0}).plots[0].continuous,true);});
 
 test('忽略订单无扣款或日期消耗，不能交付，七日刷新恢复',()=>{const s=initialState();s.inventory.herb=10;const o=s.orders[0];let n=transition(s,'ignore-order',{id:o.id});assert.equal(n.cash,s.cash);assert.equal(n.day,s.day);assert.equal(n.inventory.herb,10);assert.throws(()=>transition(n,'order',{id:o.id}));advance(n,7);assert.ok(n.orders.every(o=>!o.ignored));});
+

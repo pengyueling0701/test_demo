@@ -1,3 +1,5 @@
+import {aptitudeLevel,refundStoryMaterials} from './aptitude.js';
+import {bagCapacity,bagRoom} from './backpack.js';
 import {CROPS,harvestYield} from './gardening.js';
 import {DUNGEONS} from './dungeons.js';
 import {markQuest,recordEconomy} from './chapter.js';
@@ -6,7 +8,7 @@ export const cropCycleMs=id=>(CROPS[id]?.minutes??20)*60000;
 export const brewDurationMs=(grade,s)=>Math.round((60+grade*45)*(s.furniture.table ? .8 : 1)*1000);
 export const queueLimit=s=>6+s.furnace*4;
 const count=s=>Object.values(s.inventory).reduce((a,b)=>a+b,0);
-const room=s=>Math.max(0,60+s.house*30+(s.furniture.cabinet?40:0)-count(s));
+const room=s=>Math.max(0,bagCapacity(s)-count(s));
 const log=(s,text)=>{s.log.unshift(`第${s.day}日 · ${text}`);s.log=s.log.slice(0,35);};
 export function freshProduction(now=Date.now()){
  return {version:1,lastAt:now,elapsedMs:0,xp:0,cash:0,pills:{},refunds:{},queue:null,claimedOnce:false};
@@ -15,7 +17,7 @@ export function dungeonProgress(s,id){return Math.max(s.dungeonStages?.[id]??0,(
 export function idleRate(s){
  let progress=0,label='草庐修行';
  DUNGEONS.forEach((d,i)=>{const stage=dungeonProgress(s,d.id);if(stage&&i*3+stage>progress){progress=i*3+stage;label=d.name+' · '+['','外围','腹地','首领'][stage];}});
- return {progress,label,xp:Math.round(120*Math.pow(1.085,progress)*(s.aptitude===2?2:1)),cash:Math.round(60*Math.pow(1.12,progress))};
+ return {progress,label,xp:Math.round(120*Math.pow(1.085,progress)*(1+aptitudeLevel(s)*.1)),cash:0};
 }
 export function migrateProduction(s,raw,now=Date.now()){
  if(raw.production?.version===1){s.production=structuredClone(raw.production);s.dungeonStages={...raw.dungeonStages};return;}
@@ -31,25 +33,24 @@ export function settleProduction(s,now=Date.now()){
  const pr=s.production??=freshProduction(now);
  if(!Number.isFinite(now)||now<pr.lastAt)return s;
  const delta=now-pr.lastAt,accepted=Math.min(delta,Math.max(0,IDLE_CAP_MS-pr.elapsedMs)),rate=idleRate(s);
- pr.xp+=rate.xp*accepted/3600000;pr.cash+=rate.cash*accepted/3600000;pr.elapsedMs+=accepted;pr.lastAt=now;
+ pr.xp+=rate.xp*accepted/3600000;pr.elapsedMs+=accepted;pr.lastAt=now;
  for(const p of s.plots){
   if(!p?.continuous||now<p.lastAt)continue;
-  const yieldCount=harvestYield(s,p),cycle=p.cycleMs??cropCycleMs(p.crop??'herb'),limit=Math.floor(IDLE_CAP_MS/cycle)*yieldCount;
-  if(p.firstReadyAt!==null&&p.firstReadyAt!==undefined){if(now<p.firstReadyAt)continue;p.buffer+=yieldCount;p.lastAt=p.firstReadyAt;p.firstReadyAt=null;}
-  const ticks=Math.floor((now-p.lastAt)/cycle);p.buffer=Math.min(limit,p.buffer+ticks*yieldCount);
-  p.lastAt=p.buffer>=limit?now:p.lastAt+ticks*cycle;
+  if(p.buffer>0||p.harvestOnly){p.harvestOnly=true;continue;}
+  const ready=p.firstReadyAt??p.lastAt+(p.cycleMs??cropCycleMs(p.crop??'herb'));
+  if(now>=ready){p.buffer=harvestYield(s,p);p.lastAt=ready;p.firstReadyAt=null;p.harvestOnly=true;}
  }
  const q=pr.queue;
  if(q){
   while(q.done<q.units.length&&now>=q.startedAt+(q.done+1)*q.durationMs){
    const unit=q.units[q.done++];
-   if(unit.success){pr.pills[q.item]=(pr.pills[q.item]??0)+1;s.alchemy++;s.alchemyXP+=10;markQuest(s,'brew');}else q.failures++;
+   if(unit.success){pr.pills[q.item]=(pr.pills[q.item]??0)+1;s.alchemy++;s.alchemyXP+=10;markQuest(s,'brew');}else {q.failures++;refundStoryMaterials(s,unit);}
   }
   if(q.done===q.units.length){s.lastBrew={item:q.item,qty:q.units.length,successes:q.units.length-q.failures,failures:q.failures,success:q.failures<q.units.length,chance:q.chance};log(s,`炼丹队列完成：成功${s.lastBrew.successes}枚，失败${q.failures}枚（失败材料作废）。`);pr.queue=null;}
  }
  return s;
 }
-function moveBuffer(s,bag,id,available){const qty=Math.min(available,room(s));if(qty){s.inventory[id]=(s.inventory[id]??0)+qty;bag[id]-=qty;}return qty;}
+function moveBuffer(s,bag,id,available){const qty=Math.min(available,bagRoom(s,id));if(qty){s.inventory[id]=(s.inventory[id]??0)+qty;bag[id]-=qty;}return qty;}
 export function claimProduction(s,kind='all',index){
  const pr=s.production,received={xp:0,cash:0,items:{}};
  if(kind==='all'||kind==='idle'){
@@ -59,8 +60,8 @@ export function claimProduction(s,kind='all',index){
  if(kind==='all'||kind==='alchemy')for(const bag of [pr.pills,pr.refunds])for(const [id,n] of Object.entries(bag)){const qty=moveBuffer(s,bag,id,n);if(qty)received.items[id]=(received.items[id]??0)+qty;}
  if(kind==='all'||kind==='farm')s.plots.forEach((p,i)=>{
   if(!p?.continuous||index!==undefined&&index!==i)return;
-  const crop=CROPS[p.crop??'herb'],id=(p.grade??1)===1?crop.item:crop.item+'_q'+p.grade,qty=Math.min(p.buffer,room(s));
-  if(qty){s.inventory[id]=(s.inventory[id]??0)+qty;p.buffer-=qty;received.items[id]=(received.items[id]??0)+qty;const earned=(p.claimedForXP??0)+qty;s.farming+=Math.floor(earned/crop.yield);p.claimedForXP=earned%crop.yield;markQuest(s,'harvest');}
+  const crop=CROPS[p.crop??'herb'],id=(p.grade??1)===1?crop.item:crop.item+'_q'+p.grade,qty=Math.min(p.buffer,bagRoom(s,id));
+  if(qty){s.inventory[id]=(s.inventory[id]??0)+qty;p.buffer-=qty;received.items[id]=(received.items[id]??0)+qty;s.farmingRemainders??={};const key=p.crop??'herb',earned=(s.farmingRemainders[key]??p.claimedForXP??0)+qty;s.farming+=Math.floor(earned/crop.yield);s.farmingRemainders[key]=earned%crop.yield;p.claimedForXP=0;p.harvestOnly=true;if(!p.buffer)s.plots[i]=null;markQuest(s,'harvest');}
  });
  s.lastClaim=received;log(s,`领取收获：修为+${received.xp}，灵石+${received.cash}，物品${Object.values(received.items).reduce((a,b)=>a+b,0)}份；未领物品保留。`);
  return received;

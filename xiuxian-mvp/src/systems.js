@@ -33,12 +33,13 @@ export function equipmentStats(s){
 export const equipmentText=gear=>Object.entries(gear.stats).map(([k,v])=>`${{hp:'气血',mana:'灵力',attack:'攻击',defense:'防御'}[k]} +${v}`).join(' · ');
 export const WAREHOUSE_CATEGORIES={all:'全部材料',seed:'种子',herb:'灵药仙草',mineral:'矿物',monster:'妖兽材料',pill:'丹药',gear:'武器装备',book:'技能书'};
 export function itemCategory(id){
+  if(id.startsWith('relic_'))return 'monster';
   if(id.startsWith('book_'))return 'book';
   id=id.split('_q')[0];
   if(id==='seed'||id.endsWith('Seed'))return 'seed';
-  if(['herb','moon','fireHerb','frostHerb'].includes(id))return 'herb';
+  if(['herb','fruit','moon','fireHerb','frostHerb'].includes(id))return 'herb';
   if(id==='ore')return 'mineral';
-  if(id==='core')return 'monster';
+  if(['core','hide'].includes(id))return 'monster';
   return 'pill';
 }
 

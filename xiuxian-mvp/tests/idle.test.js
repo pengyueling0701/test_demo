@@ -12,15 +12,15 @@ test('在线分段和一次离线积累一致，现实时间不推进日历或�
  assert.equal(offline.day,1);assert.equal(offline.orders[0].id,'0-herb');assert.equal(offline.marketCycle,0);
 });
 test('24小时封顶、领取读档和重复领取不复制收益，时钟回拨无奖励',()=>{
- let s=initialState(start);tickProduction(s,start+IDLE_CAP_MS*2);assert.equal(s.production.xp,120*24);assert.equal(s.production.cash,60*24);
+ let s=initialState(start);tickProduction(s,start+IDLE_CAP_MS*2);assert.equal(s.production.xp,120*24);assert.equal(s.production.cash,0);
  s=act(s,'claim-production',{kind:'idle'});const cash=s.cash,xp=s.cultivation,level=s.level;s=restoreState(s,s.production.lastAt);s=act(s,'claim-production',{kind:'idle'});assert.equal(s.cash,cash);assert.equal(s.level,level);assert.equal(s.cultivation,xp);
  tickProduction(s,start);assert.equal(s.production.xp,0);assert.equal(s.production.cash,0);
 });
 test('持续培育只消耗启用种子，不能用休养跳过等待，满仓可分批领且不丢产物',()=>{
  let s=act(initialState(start),'plant',{index:0});s=act(s,'rest');assert.equal(s.plots[0].buffer,0);assert.equal(s.inventory.seed,7);assert.equal(s.energy,100);
- tickProduction(s,start+60000);assert.equal(s.plots[0].buffer,3);s.inventory.herb=52;s=act(s,'harvest',{index:0});assert.equal(s.inventory.herb,53);assert.equal(s.plots[0].buffer,2);assert.equal(s.farming,0);
- s=act(s,'sell',{item:'herb',qty:3});s=act(s,'harvest',{index:0});assert.equal(s.plots[0].buffer,0);assert.equal(s.inventory.seed,7);assert.ok(s.plots[0].continuous);assert.equal(s.farming,1);
- tickProduction(s,start+60000+cropCycleMs('herb'));assert.ok(s.plots[0].buffer>0);assert.throws(()=>act(s,'stop-plot',{index:0}),/先领取/);
+ tickProduction(s,start+60000);assert.equal(s.plots[0].buffer,2);s.inventory.herb=999*9-1;s=act(s,'harvest',{index:0});assert.equal(s.inventory.herb,999*9);assert.equal(s.plots[0].buffer,1);assert.equal(s.farming,0);
+ s=act(s,'sell',{item:'herb',qty:3});s=act(s,'harvest',{index:0});assert.equal(s.plots[0],null);assert.equal(s.inventory.seed,7);assert.equal(s.farming,1);
+ tickProduction(s,start+60000+cropCycleMs('herb'));assert.equal(s.plots[0],null);s=act(s,'plant',{index:0});assert.equal(s.inventory.seed,6);
 });
 test('队列预扣材料，逐枚完成；失败无经验，读档不重新随机结果',()=>{
  let s=initialState(start);s.inventory.herb=6;s.energy=0;const rolls=[0,.999,0];s=act(s,'brew',{item:'heal',qty:3},start,()=>rolls.shift());assert.equal(s.inventory.herb,0);assert.equal(s.inventory.heal,0);assert.equal(s.alchemyXP,0);
@@ -33,8 +33,8 @@ test('取消未开始部分保留正在炼制的一枚，返还材料与成品�
  tickProduction(s,start+60000);s=act(s,'claim-production',{kind:'alchemy'});assert.equal(s.inventory.herb,4);assert.equal(s.inventory.heal,1);assert.equal(s.alchemyXP,10);s=act(s,'claim-production',{kind:'alchemy'});assert.equal(s.inventory.herb,4);assert.equal(s.inventory.heal,1);
 });
 test('满仓成品和取消材料留在丹房，腾出空间后可以领取',()=>{
- let s=initialState(start);s.inventory.herb=4;s=act(s,'brew',{item:'heal',qty:2});s.inventory.ore=52;tickProduction(s,start+120000);s=act(s,'claim-production',{kind:'alchemy'});assert.equal(s.inventory.heal,0);assert.equal(s.production.pills.heal,2);
- s=act(s,'sell',{item:'ore',qty:1});s=act(s,'claim-production',{kind:'alchemy'});assert.equal(s.inventory.heal,1);assert.equal(s.production.pills.heal,1);
+ let s=initialState(start);s.inventory.herb=4;s=act(s,'brew',{item:'heal',qty:2});s.inventory.ore=999*9;tickProduction(s,start+120000);s=act(s,'claim-production',{kind:'alchemy'});assert.equal(s.inventory.heal,0);assert.equal(s.production.pills.heal,2);
+ s=act(s,'sell',{item:'ore',qty:999});s=act(s,'claim-production',{kind:'alchemy'});assert.equal(s.inventory.heal,2);assert.equal(s.production.pills.heal,0);
 });
 test('旧债务失败存档保留资产技能与通关记录，迁移从启用时开始且不补发任务奖励',()=>{
  const old=initialState(start);delete old.production;old.debt=1234567;old.failed=true;old.cash=321;old.inventory.herb=4;old.clearedDungeons=['qinglan'];old.tutorial.completed=['collection','plant'];old.tutorial.claimed=['collection','plant'];old.plots[0]={crop:'herb',planted:1,ready:1};
@@ -50,3 +50,4 @@ test('领取修为连续提升小等级，十级停留且溢出保留，仍需�
  let s=initialState(start);s.production.xp=2000;s=act(s,'claim-production',{kind:'idle'});assert.equal(s.realm,0);assert.equal(s.level,10);assert.equal(s.cultivation,1000);assert.throws(()=>act(s,'breakthrough'),/筑基丹/);
  s.inventory.foundationPill=1;s=act(s,'breakthrough');assert.equal(s.realm,1);assert.equal(s.inventory.foundationPill,0);assert.equal(s.cultivation,160);assert.equal(s.level,3);assert.equal(s.day,1);
 });
+test('挂机只产修为，秘境提高修为效率但不产灵石，历史已攒灵石只领取一次',()=>{let s=initialState(start);s.dungeonStages={qinglan:3};tickProduction(s,start+3600000);assert.ok(s.production.xp>120);assert.equal(s.production.cash,0);s=act(s,'claim-production',{kind:'idle'});assert.equal(s.cash,500);s.production.cash=30;s=act(s,'claim-production',{kind:'idle'});assert.equal(s.cash,530);tickProduction(s,start+7200000);s=act(s,'claim-production',{kind:'idle'});assert.equal(s.cash,530);});

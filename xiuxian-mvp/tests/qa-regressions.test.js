@@ -1,0 +1,3 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {initialState,transition,maxHP,maxMana} from '../src/game.js';
+test('秘境往返仅消耗入场30精力，不被日期恢复抵消；低精力须休养再入场',()=>{for(const energy of [30,100]){let s=initialState();s.realm=1;s.energy=energy;s=transition(s,'expedition',{dungeonId:'qinglan'});assert.equal(s.energy,energy-30);s=transition(s,'return',{hp:1,mana:20,toxin:20,heal:0,doubleJump:false,bossDefeated:false,defeated:false,loot:{}});assert.equal(s.energy,energy-30);assert.equal(s.hp,maxHP(s));assert.equal(s.mana,maxMana(s));assert.equal(s.day,3);if(energy===30){assert.throws(()=>transition(s,'expedition',{dungeonId:'qinglan'}));s=transition(s,'rest');assert.equal(s.energy,70);assert.equal(s.toxin,0);}}});
+

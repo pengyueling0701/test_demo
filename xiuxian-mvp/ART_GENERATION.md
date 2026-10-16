@@ -115,3 +115,15 @@ Create ONE production game sprite atlas for a Chinese ancient xianxia farming mo
 
 ## v0.19 手动炼丹美术
 内置image_gen生成六档丹房背景与透明药泥、药杵、火焰、成丹图集。素材已保存public/art/alchemy-rooms-v1.png与public/art/alchemy-process-v1.png。原图保留，CSS取单格，不编辑PNG。完整提示词和原始输出路径记录在release/alchemy-art-prompts-v0.19.json。
+
+
+## v0.22.0 青岚妖兽图集
+
+内置 image_gen 生成，透明背景，手绘非像素；原图2172×724直接复制为 public/art/qinglan-monsters-v1.png，未编辑PNG。原始输出：C:/Users/mosanbai/.codex/generated_images/01a10f51-54fa-71c0-904f-ec5583eafecd/exec-49b36ed2-f080-4aaa-a161-2a3c3289ac5e.png。显示时按各角色边界取区域，分别对应青竹獠鼠、竹影妖狼、青岚兽王。背景与主角沿用项目素材。
+
+提示词：Use case stylized-concept. Game asset transparent sprite atlas for a Chinese fantasy cultivation mobile game, hand-painted detailed 2D illustration, NOT pixel art. EXACTLY three equal square cells in one horizontal row, with generous transparent margins, each contains one full-body hostile bamboo forest monster facing LEFT, grounded feet aligned near bottom: cell1 a small jade-green bamboo rat with mossy fur and sharp tusks, cell2 a lean forest wolf with leafy green mane, cell3 a powerful bamboo beast king, tiger-like with jade antlers and dark emerald mane. Ancient Chinese folklore beasts, readable strong silhouettes, warm earthy jade palette, no gore. Whole canvas landscape 3:1. No text, no borders, no scene background, no labels, no shadows extending across cells. Actual transparent alpha background. Each creature stays fully inside its own equal cell, no overlap. Suitable sprites for a side-view turn-based battle with a human cultivator.
+
+## v0.25.1 饲灵果四阶段
+内置 image_gen 模式生成，透明底；原始2172×724 PNG直接复制到 public/art/spirit-fruit-stages-v1.png，保留原图不编辑。原始输出：C:/Users/mosanbai/.codex/generated_images/01a10f51-54fa-71c0-904f-ec5583eafecd/exec-6bac0c18-c24e-4b40-b0c0-689d60649c12.png。四列在代码中用于种子、幼苗、植株、成熟阶段，果实及种子库存图标沿用同一图集。
+
+提示词：Use case: stylized-concept. Production game asset, a Chinese xianxia mobile farming game's four-stage fruit crop sprite atlas. Exact layout 4 equal square cells in one horizontal row, no text no borders no scenery, true transparent alpha background. A small compact leafy fruit bush called beast-taming spirit fruit, emerald rounded leaves, warm amber-orange round fruits with subtle golden speckles. Cells left to right: 1 three seeds in a tiny soil mound, 2 tiny two-leaf seedling, 3 knee-high leafy bush with no ripe fruits, 4 same compact bush laden with 6 ripe amber-orange round fruits clearly visible. Match hand-painted isometric Chinese fantasy game assets, detailed soft painterly shading, NOT pixel art. Entire objects fully inside each cell with 12 percent transparent margins, never touch neighbor cell; grounded base near bottom 85 percent, centered, same viewing angle and consistent lighting. Landscape 4:1 image. No pots, no UI, no letters.

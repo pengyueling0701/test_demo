@@ -12,13 +12,13 @@ test('缺灵石或住宅等级不足时土地改造失败，已有作物不能�
   assert.throws(()=>transition(s,'soil',{index:0,soil:'spirit'}));assert.deepEqual(s,before);
 });
 test('特殊草药种植需要对应土地，不匹配时不消耗种子或精力',()=>{
-  for(const [id,c]of Object.entries(CROPS).filter(([id])=>id!=='herb')){
+  for(const [id,c]of Object.entries(CROPS).filter(([,c])=>!c.soils.includes('normal'))){
     let s=initialState();s.realm=1;s.house=2;s.cash=10000;s.inventory[c.seed]=2;
     const original=structuredClone(s);assert.throws(()=>transition(s,'plant',{index:0,crop:id}));assert.deepEqual(s,original);
     s=transition(s,'soil',{index:0,soil:c.soils[0]});s=transition(s,'plant',{index:0,crop:id});
     assert.equal(s.inventory[c.seed],1);assert.equal(s.plots[0].crop,id);assert.ok(s.plots[0].firstReadyAt>s.production.lastAt);
     assert.throws(()=>transition(s,'harvest',{index:0}));s=harvestReady(s);
-    assert.equal(s.inventory[c.item],c.yield);assert.ok(s.plots[0].continuous);assert.equal(s.plotSoils[0],c.soils[0]);
+    assert.equal(s.inventory[c.item],c.yield);assert.equal(s.plots[0],null);assert.equal(s.plotSoils[0],c.soils[0]);
   }
 });
 test('青灵草适应所有土地，改土不叠加收益，恢复普通地不退费用',()=>{
@@ -26,7 +26,7 @@ test('青灵草适应所有土地，改土不叠加收益，恢复普通地不�
   for(const key of Object.keys(SOILS)){
     if(s.plotSoils[0]!==key)s=transition(s,'soil',{index:0,soil:key});
     const cash=s.cash;assert.throws(()=>transition(s,'soil',{index:0,soil:key}));assert.equal(s.cash,cash);
-    s=transition(s,'plant',{index:0});s=harvestReady(s);assert.equal(s.plotSoils[0],key);s=transition(s,'stop-plot',{index:0});
+    s=transition(s,'plant',{index:0});s=harvestReady(s);assert.equal(s.plotSoils[0],key);
   }
   const cash=s.cash;s=transition(s,'soil',{index:0,soil:'normal'});assert.equal(s.cash,cash);
 });
@@ -35,6 +35,6 @@ test('旧存档补齐土地与种子字段，保留成熟时间及资产，老�
   delete old.production;old.plots[0]={planted:1,ready:3};old.day=3;old.cash=1234;old.inventory.herb=7;
   const s=restoreState(old);assert.equal(s.cash,1234);assert.equal(s.inventory.herb,7);assert.equal(s.inventory.moonSeed,0);assert.equal(s.inventory.fireHerb,0);
   assert.deepEqual(s.plotSoils,Array(9).fill('normal'));assert.equal(s.plots[0].ready,3);
-  assert.equal(transition(s,'harvest',{index:0}).inventory.herb,10);assert.equal(old.plotSoils,undefined);
+  assert.equal(transition(s,'harvest',{index:0}).inventory.herb,9);assert.equal(old.plotSoils,undefined);
 });
 test('取消催收后不扣除草药，低资金也可继续经营',()=>{const s=initialState();s.cash=0;s.inventory.fireHerb=1;collectDebt(s);assert.equal(s.cash,0);assert.equal(s.inventory.fireHerb,1);assert.equal(s.failed,false);assert.equal(s.nextCollection,null);});

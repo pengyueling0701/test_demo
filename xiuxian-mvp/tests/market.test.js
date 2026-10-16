@@ -22,5 +22,5 @@ test('集市购入只一次，读档保留售罄，七日刷新而非离线刷�
 test('集市可购传说物品，资金或容量不足不损失资源',()=>{
  let s=initialState();s.marketOffers=makeMarket(0,marketCatalog(),()=>0);const o=s.marketOffers[5];s.cash=999999;
  const n=transition(s,'market-buy',{id:o.id});assert.equal(n.inventory[o.item],1);assert.equal(n.cash,s.cash-o.price);
- s.cash=0;assert.throws(()=>transition(s,'market-buy',{id:o.id}));assert.ok(!s.marketOffers[5].sold);s.cash=999999;s.inventory.herb=60;assert.throws(()=>transition(s,'market-buy',{id:o.id}));assert.equal(s.cash,999999);assert.ok(!s.marketOffers[5].sold);
+ s.cash=0;assert.throws(()=>transition(s,'market-buy',{id:o.id}));assert.ok(!s.marketOffers[5].sold);s.cash=999999;s.inventory.herb=999*9;s.inventory.seed=999;assert.throws(()=>transition(s,'market-buy',{id:o.id}));assert.equal(s.cash,999999);assert.ok(!s.marketOffers[5].sold);
 });

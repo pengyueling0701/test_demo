@@ -1,0 +1,3 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {initialState,transition,ITEMS} from '../src/game.js';
+test('所有丹药均不能在商店购买，集市批量卖丹扣库存并入账',()=>{let s=initialState();s.cash=100000;for(const [id,i]of Object.entries(ITEMS).filter(([,i])=>i.pill))assert.throws(()=>transition(s,'buy',{item:id}));s.inventory.heal=3;const cash=s.cash;s=transition(s,'market-sell',{item:'heal',qty:2});assert.equal(s.inventory.heal,1);assert.equal(s.cash,cash+ITEMS.heal.sell*2);assert.ok(s.economy.entries.some(e=>e.amount===ITEMS.heal.sell*2));s=transition(s,'toggle-item-lock',{item:'heal'});assert.throws(()=>transition(s,'market-sell',{item:'heal'}));});
+
